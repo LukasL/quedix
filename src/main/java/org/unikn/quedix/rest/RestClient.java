@@ -20,9 +20,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import org.unikn.quedix.query.BaseXClient;
-import org.unikn.quedix.query.BaseXClient.Query;
-
 /**
  * This class is responsible to execute parallel queries over HTTP.
  */
@@ -37,8 +34,12 @@ public class RestClient {
     public static final String EQ2 = "sum(for $i in (1 to 1000000) return $i)";
     /** Example query 3. */
     public static final String EQ3 = "1";
+    /** Example query 4. */
+    public static final String EQ4 = "count(/descendant::text())*2";
+    /** document for importing and querying. */
+    public static final String DOC = "factbook";
     /** Example collection name. */
-    public static final String COL = "rest/MyL";
+    public static final String COL = "rest/" + DOC;
     /** Registered data servers. */
     private Map<String, String> mDataServers;
 
@@ -57,7 +58,7 @@ public class RestClient {
         // serial
         // c.executeQuerySerial(EQ2);
         // parallel
-        c.executeQueryParallel(EQ2);
+        c.executeQueryParallel(EQ4);
         long end = System.nanoTime() - start;
         System.out.println("Complete Time: " + end / 1000000 + " ms");
 
@@ -169,7 +170,8 @@ public class RestClient {
             conn.setRequestMethod("PUT");
 
             OutputStream out = new BufferedOutputStream(conn.getOutputStream());
-            InputStream in = new BufferedInputStream(RestClient.class.getResourceAsStream("/lexus.xml"));
+            InputStream in =
+                new BufferedInputStream(RestClient.class.getResourceAsStream("/" + DOC + ".xml"));
             for (int i; (i = in.read()) != -1;)
                 out.write(i);
             in.close();

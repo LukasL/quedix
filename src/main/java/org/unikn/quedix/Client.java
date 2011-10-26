@@ -29,12 +29,16 @@ public class Client {
     private static final String USER = "admin";
     /** Password. */
     private static final String PW = "admin";
+    /** document name for import and querying. */
+    public static final String DOC = "factbook";
     /** Example query 1. */
     public static final String EQ1 = "doc('MyL')//user";
     /** Example query 2. */
     public static final String EQ2 = "sum(for $i in (1 to 1000000) return $i)";
     /** Example query 3. */
     public static final String EQ3 = "1";
+    /** Example query 4. */
+    public static final String EQ4 = "count(doc('factbook')/descendant::text())*2";
 
     /** client instances. */
     private Map<String, BaseXClient> mClients;
@@ -53,7 +57,7 @@ public class Client {
             // query MyL
             System.out.println("QUERY RESULT: ***");
             long start = System.nanoTime();
-            c.queryParallel(c.getClients(), EQ2);
+            c.queryParallel(c.getClients(), EQ4);
             // c.querySequential(c.getClients(), EQ2);
             c.shutdownClients();
             long end = System.nanoTime() - start;
@@ -163,8 +167,8 @@ public class Client {
      */
     public void exampleImporter(final Map<String, BaseXClient> cls) throws IOException {
         for (Map.Entry<String, BaseXClient> c : cls.entrySet()) {
-            InputStream is = Client.class.getResourceAsStream("/lexus.xml");
-            create(c.getValue(), "MyL", is);
+            InputStream is = Client.class.getResourceAsStream("/" + DOC + ".xml");
+            create(c.getValue(), DOC, is);
             is.close();
         }
     }
