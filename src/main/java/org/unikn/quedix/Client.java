@@ -53,8 +53,8 @@ public class Client {
 			// query MyL
 			System.out.println("QUERY RESULT: ***");
 			long start = System.nanoTime();
-			// c.queryParallel(c.getClients(), EQ1);
-			c.querySequential(c.getClients(), EQ1);
+			c.queryParallel(c.getClients(), EQ1);
+//			c.querySequential(c.getClients(), EQ1);
 			c.shutdownClients();
 			long end = System.nanoTime() - start;
 			System.out.println("Complete Time: " + end / 1000000 + " ms");
