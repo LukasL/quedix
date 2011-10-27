@@ -238,4 +238,13 @@ public class RestClient {
         return result;
     }
 
+    /**
+     * Simple getter.
+     * 
+     * @return Available data servers.
+     */
+    public Map<String, String> getDataServers() {
+        return mDataServers;
+    }
+
 }
