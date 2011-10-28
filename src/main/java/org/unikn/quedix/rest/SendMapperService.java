@@ -30,6 +30,7 @@ import java.net.URL;
  */
 public class SendMapperService {
 
+    /** HTTP PUT string. */
     private static final String PUT = "PUT";
     /** Content type string. */
     private static final String CONTENT_TYPE_STRING = "Content-Type";
@@ -77,7 +78,7 @@ public class SendMapperService {
     public void executeService() {
         try {
             mConnection.connect();
-            if (mConnection.getResponseCode() == HttpURLConnection.HTTP_CREATED) {
+            if (mConnection.getResponseCode() != HttpURLConnection.HTTP_CREATED) {
                 // TODO error
             }
             mConnection.disconnect();
