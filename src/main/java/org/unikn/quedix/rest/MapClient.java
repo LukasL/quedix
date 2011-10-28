@@ -17,7 +17,6 @@
 
 package org.unikn.quedix.rest;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,8 +25,11 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+
+import org.jaxrx.core.Systems;
 
 /**
  * This class is the client representation for executing/sending map XQuery scripts.
@@ -38,6 +40,10 @@ public class MapClient {
 
     /** MapperDb name for holding mapping query files. */
     private static final String MAPPER_DB = "MapperDb";
+    /** PUT HTTP method string. */
+    private static final String PUT = "PUT";
+    /** Content type string. */
+    private static final String CONTENT_TYPE_STRING = "Content-Type";
     /** Collection or database context for the mapper execution tasks. */
     private String mCollectionContext;
     /** REST client. */
@@ -58,30 +64,67 @@ public class MapClient {
      */
     public MapClient(final RestClient client) {
         mClient = client;
+        for (String updateDataServer : checkMapperDb())
+            createMapperDb(updateDataServer + "/" + MAPPER_DB);
     }
 
+    /**
+     * Sets collection context.
+     * 
+     * @param collection
+     *            collection for the mapper execution.
+     */
     public void setContextCollection(final String collection) {
         mCollectionContext = collection;
     }
 
-    public void sendMapperTask(final InputStream xQueryMapper) {
-        for (String dataServer : checkMapperDb())
-            createMapperDb(dataServer + "/" + MAPPER_DB);
-        //TODO send xquery file to the data servers
+    /**
+     * This method sends the user implemented XQuery mapper file to the MapperDb, where it will be executed.
+     * 
+     * @param xQueryMapper
+     *            The XQuery mapper file as byte array.
+     */
+    public void sendMapperTask(final byte[] xQueryMapper) {
+        for (Map.Entry<String, String> dataServer : mClient.getDataServers().entrySet()) {
+            String destinationPath =
+                dataServer.getKey() + "/" + MAPPER_DB + "/map" + System.nanoTime() + ".xq";
+            try {
+                SendMapperService mapperService = new SendMapperService(destinationPath);
+                OutputStream outputStream = new BufferedOutputStream(mapperService.prepareOutput());
+                byte[] mapper = new byte[xQueryMapper.length];
+                System.arraycopy(xQueryMapper, 0, mapper, 0, xQueryMapper.length);
+                outputStream.write(mapper);
+                mapperService.executeService();
+            } catch (final IOException exc) {
+                exc.printStackTrace();
+            }
+        }
 
     }
 
-    public void sendReducerTask(final InputStream xQueryReducer) {
+    /**
+     * This method sends the user implemented XQuery reducer file to the ReducerDb, where it will be executed.
+     * 
+     * @param xQueryReducer
+     *            The XQuery reducer file as byte array.
+     */
+    public void sendReducerTask(final byte[] xQueryReducer) {
 
     }
 
+    /**
+     * Creates a MapperDb for holding mapper xquery files.
+     * 
+     * @param targetResource
+     *            The resource location of the MapperDB.
+     */
     private void createMapperDb(final String targetResource) {
         URL url;
         try {
             url = new URL(targetResource);
             HttpURLConnection conn = (HttpURLConnection)url.openConnection();
             conn.setDoOutput(true);
-            conn.setRequestMethod("PUT");
+            conn.setRequestMethod(PUT);
 
             if (conn.getResponseCode() != HttpURLConnection.HTTP_CREATED) {
                 // TODO Exception werfen, da ausführung irgendwie nicht möglich
@@ -96,6 +139,12 @@ public class MapClient {
         }
     }
 
+    /**
+     * This method checks if the MapperDb exists already, to decide if we need to create a db for the mapper
+     * files.
+     * 
+     * @return A {@link List} of data servers, where we have to create the MapperDb.
+     */
     private List<String> checkMapperDb() {
         List<String> notExistingMapperDbs = new ArrayList<String>();
         for (Map.Entry<String, String> dataServers : mClient.getDataServers().entrySet()) {
@@ -115,6 +164,11 @@ public class MapClient {
         return notExistingMapperDbs;
     }
 
+    /**
+     * Returns the context collection for execution of the mappers.
+     * 
+     * @return Collection context.
+     */
     public String getContextCollection() {
         return mCollectionContext;
     }
