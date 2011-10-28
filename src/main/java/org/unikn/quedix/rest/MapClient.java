@@ -52,7 +52,7 @@ public class MapClient {
     /** PUT HTTP method string. */
     private static final String PUT = "PUT";
     /** Content type string. */
-    private static final String CONTENT_TYPE_STRING = "Content-Type";
+    // private static final String CONTENT_TYPE_STRING = "Content-Type";
     /** Collection or database context for the mapper execution tasks. */
     private String mCollectionContext;
     /** REST client. */
@@ -241,7 +241,6 @@ public class MapClient {
 
     /**
      * Delete query files in parallel.
-     * 
      */
     public void deleteQueryParallel() {
         ExecutorService executor = Executors.newFixedThreadPool(mDestinationMappers.size());
@@ -251,9 +250,7 @@ public class MapClient {
 
                 @Override
                 public Void call() throws Exception {
-                    long start = System.nanoTime();
                     deleteQuery(entry);
-                    long time = System.nanoTime() - start;
                     return null;
                 }
             };

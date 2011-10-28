@@ -42,9 +42,9 @@ public class Runner {
         map.sendMapperTask(mapInputFile);
         System.out.println("Execute XQuery files");
         map.executeQueryParallel();
+        // TODO check if everything is successful and if so, delete all distributed scripts.
         System.out.println("Delete XQuery files");
         map.deleteQueryParallel();
-        
 
     }
 
