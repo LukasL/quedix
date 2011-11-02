@@ -20,10 +20,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.unikn.quedix.Client;
+
 /**
  * This class is responsible to execute parallel queries over HTTP.
  */
-public class RestClient {
+public class RestClient implements Client{
 
     /** Host name. */
     private static final String HOST = "aalto.disy.inf.uni-konstanz.de";

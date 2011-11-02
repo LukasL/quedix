@@ -17,12 +17,29 @@
 
 package org.unikn.quedix;
 
+import java.io.IOException;
+
 /**
- * This interface abstracts the available methods for execution of distribution, querying and deletion of our
- * map and reduce tasks.
+ * This class is responsible to initiate the map and reduce tasks.
  * 
  * @author Lukas Lewandowski, University of Konstanz.
  */
-public interface Client {
+public class Runner {
+
+    /**
+     * Main.
+     * 
+     * @param args
+     *            Program arguments are input paths to map and reduce XQuery files.
+     * @throws IOException
+     */
+    public static void main(final String[] args) throws IOException {
+//        Runner i = new Runner();
+        long start = System.nanoTime();
+        long time = System.nanoTime() - start;
+        System.out.println("\nComplete query execution time: " + time / 1000000 + " ms \n");
+
+    }
+
 
 }
