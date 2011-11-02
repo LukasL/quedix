@@ -25,4 +25,24 @@ package org.unikn.quedix;
  */
 public interface Client {
 
+//    /**
+//     * This method distributes a map.xq or a reduce.xq to the data server.
+//     * 
+//     * @param xq
+//     *            An XQ file as byte array.
+//     * @return <code>true</code> if the distribution has been successful, <code>false</code> otherwise.
+//     */
+//    public boolean distribute(final byte[] xq);
+//
+//    public boolean execute(final String xq);
+//
+//    /**
+//     * This method deletes a map.xq or a reduce.xq from the data server.
+//     * 
+//     * @param xq
+//     *            The path of the XQ file.
+//     * @return <code>true</code> if the deletion has been successful, <code>false</code> otherwise.
+//     */
+//    public boolean delete(final String xq);
+
 }
