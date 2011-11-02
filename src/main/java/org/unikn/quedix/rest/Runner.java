@@ -20,6 +20,7 @@ package org.unikn.quedix.rest;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * This class is responsible to initiate the map and reduce tasks.
@@ -37,14 +38,27 @@ public class Runner {
      */
     public static void main(final String[] args) throws IOException {
         Runner i = new Runner();
+        long start = System.nanoTime();
         byte[] mapInputFile = i.readByteArray(args[0]);
         MapClient map = new MapClient();
         map.sendMapperTask(mapInputFile);
         System.out.println("Execute XQuery files");
         map.executeQueryParallel();
-        // TODO check if everything is successful and if so, delete all distributed scripts.
-        System.out.println("Delete XQuery files");
-        map.deleteQueryParallel();
+        // check if everything is successful and if so, delete all distributed scripts.
+        Map<String, Integer> states = map.getStates();
+        boolean isFinishedSuccessful = true;
+        for (Map.Entry<String, Integer> srv : states.entrySet()) {
+            if (srv.getValue() < 100) {
+                isFinishedSuccessful = false;
+                System.out.println("Server: " + srv.getKey()
+                + " ended not successful. Mapping not successful.");
+            }
+        }
+        long time = System.nanoTime() - start;
+        System.out.println("\nComplete query execution time: " + time / 1000000 + " ms \n");
+        System.out.println("Cleaning up servers");
+        if (isFinishedSuccessful)
+            map.deleteQueryParallel();
 
     }
 

@@ -20,23 +20,20 @@ package org.unikn.quedix.rest;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-
-import org.jaxrx.core.Systems;
 
 /**
  * This class is the client representation for executing/sending map XQuery scripts.
@@ -59,6 +56,8 @@ public class MapClient {
     private RestClient mClient;
     /** Mappers located at destinations. */
     private List<String> mDestinationMappers;
+    /** Map of executed server files inclusive state information. */
+    private Map<String, Integer> mStates;
 
     /**
      * Default constructor.
@@ -78,6 +77,7 @@ public class MapClient {
         for (String updateDataServer : checkMapperDb())
             createMapperDb(updateDataServer + MAPPER_DB);
         mDestinationMappers = new ArrayList<String>();
+        mStates = new ConcurrentHashMap<String, Integer>();
     }
 
     /**
@@ -102,6 +102,7 @@ public class MapClient {
             final String destinationPath =
                 dataServer.getKey() + MAPPER_DB + "/map" + System.nanoTime() + ".xq";
             mDestinationMappers.add(destinationPath);
+            mStates.put(destinationPath, 0);
             Callable<Void> task = new Callable<Void>() {
 
                 @Override
@@ -116,6 +117,7 @@ public class MapClient {
                         outputStream.write(mapper);
                         outputStream.close();
                         mapperService.executeService();
+                        mStates.put(destinationPath, 100);
                     } catch (final IOException exc) {
                         exc.printStackTrace();
                     }
@@ -340,6 +342,15 @@ public class MapClient {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Gets all current states of executed XQuery files.
+     * 
+     * @return states.
+     */
+    public Map<String, Integer> getStates() {
+        return mStates;
     }
 
 }
