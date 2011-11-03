@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,10 +26,7 @@ import org.unikn.quedix.Client;
 /**
  * This class is responsible to execute parallel queries over HTTP.
  */
-public class RestClient implements Client{
-
-    /** Host name. */
-    private static final String HOST = "aalto.disy.inf.uni-konstanz.de";
+public class RestClient implements Client {
 
     /** Example query 1. */
     public static final String EQ1 = "//user";
@@ -42,48 +40,26 @@ public class RestClient implements Client{
     public static final String DOC = "factbook";
     /** Example collection name. */
     public static final String COL = "rest/" + DOC;
+    /** UTF-8 string. */
+    private static final String UTF8 = "UTF-8";
+    /** MapperDb name for holding mapping query files. */
+    private final String MAPPER_DB = "rest/MapperDb";
     /** Registered data servers. */
     private Map<String, String> mDataServers;
-
-    /**
-     * Main method.
-     * 
-     * @param args
-     */
-    public static void main(String[] args) {
-
-        RestClient c = new RestClient();
-        c.importExample();
-        System.out.println("QUERY RESULT: ***");
-        long start = System.nanoTime();
-
-        // serial
-        // c.executeQuerySerial(EQ2);
-        // parallel
-        c.executeQueryParallel(EQ4);
-        long end = System.nanoTime() - start;
-        System.out.println("Complete Time: " + end / 1000000 + " ms");
-
-    }
+    /** PUT HTTP method string. */
+    private static final String PUT = "PUT";
+    /** Mappers located at destinations. */
+    private List<String> mDestinationMappers;
+    /** Map of executed server files inclusive state information. */
+    private Map<String, Integer> mStates;
 
     /**
      * Default constructor.
      */
-    public RestClient() {
-        mDataServers = initDataServers();
-    }
-
-    /**
-     * Initializes the example servers.
-     * 
-     * @return {@link Map} of server mappings.
-     */
-    private Map<String, String> initDataServers() {
-        Map<String, String> dataServers = new HashMap<String, String>();
-        dataServers.put("http://" + HOST + ":8984/", COL);
-        dataServers.put("http://" + HOST + ":8986/", COL);
-        dataServers.put("http://" + HOST + ":8988/", COL);
-        return dataServers;
+    public RestClient(final Map<String, String> dataServers) {
+        mDataServers = dataServers;
+        mDestinationMappers = new ArrayList<String>();
+        mStates = new ConcurrentHashMap<String, Integer>();
     }
 
     /**
@@ -96,41 +72,100 @@ public class RestClient implements Client{
     }
 
     /**
-     * Executes queries sequential.
+     * Simple getter.
      * 
-     * @param query
-     *            XQuery expression.
+     * @return Available data servers.
      */
-    public void executeQuerySerial(final String query) {
-        for (Map.Entry<String, String> serverEntry : mDataServers.entrySet()) {
-            long start = System.nanoTime();
-            System.out.println(query(serverEntry.getKey() + serverEntry.getValue(), query));
-            long time = System.nanoTime() - start;
-            System.out.println("Time for " + serverEntry.getKey() + ": " + time / 1000000 + " ms");
+    public Map<String, String> getDataServers() {
+        return mDataServers;
+    }
+
+    @Override
+    public boolean distribute(final byte[] xq) {
+        boolean isSuccessful = true;
+        ExecutorService executor = Executors.newFixedThreadPool(getDataServers().size());
+        for (Map.Entry<String, String> dataServer : getDataServers().entrySet()) {
+            final String destinationPath =
+                dataServer.getKey() + MAPPER_DB + "/map" + System.nanoTime() + ".xq";
+            mDestinationMappers.add(destinationPath);
+            mStates.put(destinationPath, 0);
+            Callable<Void> task = new Callable<Void>() {
+
+                @Override
+                public Void call() throws Exception {
+                    long start = System.nanoTime();
+
+                    try {
+                        SendMapperService mapperService = new SendMapperService(destinationPath);
+                        OutputStream outputStream = new BufferedOutputStream(mapperService.prepareOutput());
+                        byte[] mapper = new byte[xq.length];
+                        System.arraycopy(xq, 0, mapper, 0, xq.length);
+                        outputStream.write(mapper);
+                        outputStream.close();
+                        mapperService.executeService();
+                        mStates.put(destinationPath, 100);
+                    } catch (final IOException exc) {
+                        exc.printStackTrace();
+                    }
+
+                    long time = System.nanoTime() - start;
+                    System.out.println("Time for " + destinationPath + ": " + time / 1000000 + " ms");
+                    return null;
+                }
+            };
+            executor.submit(task);
 
         }
+        // This will make the executor accept no new threads
+        // and finish all existing threads in the queue
+        executor.shutdown();
+        // Wait until all threads are finish
+        while(!executor.isTerminated())
+            ;
+        return isSuccessful;
     }
 
     /**
-     * Executes queries in parallel.
+     * Creates a MapperDb for holding mapper xquery files.
      * 
-     * @param query
-     *            XQuery expression.
+     * @param targetResource
+     *            The resource location of the MapperDB.
      */
-    public void executeQueryParallel(final String query) {
+    public void createMapperDb(final String targetResource) {
+        URL url;
+        try {
+            url = new URL(targetResource + getMapperDb());
+            HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+            conn.setDoOutput(true);
+            conn.setRequestMethod(PUT);
+
+            if (conn.getResponseCode() != HttpURLConnection.HTTP_CREATED) {
+                // TODO Exception werfen, da ausführung irgendwie nicht möglich
+            }
+            System.out.println("\n* HTTP response: " + conn.getResponseCode() + " ("
+            + conn.getResponseMessage() + ")");
+            conn.disconnect();
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public String[] execute(final String xq) {
         List<Future<String>> stringResults = new ArrayList<Future<String>>();
-        ExecutorService executor = Executors.newFixedThreadPool(mDataServers.size());
-        for (Map.Entry<String, String> serverEntry : mDataServers.entrySet()) {
-            final Map.Entry<String, String> entry = serverEntry;
+        ExecutorService executor = Executors.newFixedThreadPool(mDestinationMappers.size());
+        for (String mapperFile : mDestinationMappers) {
+            final String entry = mapperFile;
             Callable<String> task = new Callable<String>() {
 
                 @Override
                 public String call() throws Exception {
-                    System.out.println("Result from: " + entry.getKey());
                     long start = System.nanoTime();
-                    String result = query(entry.getKey() + entry.getValue(), query);
+                    String result = runQuery(entry);
                     long time = System.nanoTime() - start;
-                    System.out.println("Time for " + entry.getKey() + ": " + time / 1000000 + " ms");
+                    System.out.println("Time for " + entry + ": " + time / 1000000 + " ms");
 
                     return result;
                 }
@@ -143,16 +178,128 @@ public class RestClient implements Client{
         // Wait until all threads are finish
         while(!executor.isTerminated())
             ;
-
+        String[] results = new String[stringResults.size()];
+        int i = 0;
         for (Future<String> future : stringResults) {
             try {
-                System.out.println(future.get());
+                results[i++] = future.get();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             } catch (ExecutionException e) {
                 e.printStackTrace();
             }
         }
+        return results;
+    }
+
+    @Override
+    public boolean delete(final String xq) {
+        boolean isSuccessfull = true;
+        ExecutorService executor = Executors.newFixedThreadPool(mDestinationMappers.size());
+        List<Future<Boolean>> booleanResults = new ArrayList<Future<Boolean>>();
+        for (String mapperFile : mDestinationMappers) {
+            final String entry = mapperFile;
+            Callable<Boolean> task = new Callable<Boolean>() {
+
+                @Override
+                public Boolean call() throws Exception {
+                    boolean isSuccessful = false;
+                    URL url;
+                    try {
+                        url = new URL(entry);
+                        HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+                        conn.setRequestMethod("DELETE");
+                        int code = conn.getResponseCode();
+                        if (code == HttpURLConnection.HTTP_OK) {
+                            BufferedReader br =
+                                new BufferedReader(new InputStreamReader(conn.getInputStream(), UTF8));
+
+                            StringBuffer sb = new StringBuffer();
+                            for (String line; (line = br.readLine()) != null;) {
+                                sb.append(line);
+                            }
+                            br.close();
+                            System.out.println(sb.toString());
+                            isSuccessful = true;
+                        } else {
+                            BufferedReader br =
+                                new BufferedReader(new InputStreamReader(conn.getErrorStream(), UTF8));
+                            for (String line; (line = br.readLine()) != null;) {
+                                System.out.println(line);
+                            }
+                            br.close();
+                            isSuccessful = false;
+                        }
+
+                        conn.disconnect();
+                    } catch (MalformedURLException e) {
+                        e.printStackTrace();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    return isSuccessful;
+                }
+            };
+            booleanResults.add(executor.submit(task));
+        }
+        // This will make the executor accept no new threads
+        // and finish all existing threads in the queue
+        executor.shutdown();
+        // Wait until all threads are finish
+        while(!executor.isTerminated())
+            ;
+        for (Future<Boolean> future : booleanResults) {
+            try {
+                if (future.get() == false) {
+                    isSuccessfull = false;
+                    break;
+                }
+            } catch (final InterruptedException exc) {
+                exc.printStackTrace();
+            } catch (final ExecutionException exc) {
+                exc.printStackTrace();
+            }
+        }
+
+        return isSuccessfull;
+    }
+
+    public String getMapperDb() {
+        return MAPPER_DB;
+    }
+
+    /**
+     * This method checks if the MapperDb exists already, to decide if we need to create a db for the mapper
+     * files.
+     * 
+     * @return A {@link List} of data servers, where we have to create the MapperDb.
+     */
+    public List<String> checkMapperDb() {
+        List<String> notExistingMapperDbs = new ArrayList<String>();
+        for (Map.Entry<String, String> dataServers : getDataServers().entrySet()) {
+            URL url;
+            try {
+                url = new URL(dataServers.getKey() + getMapperDb());
+                HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+                if (conn.getResponseCode() == HttpURLConnection.HTTP_NOT_FOUND)
+                    notExistingMapperDbs.add(dataServers.getKey());
+                conn.disconnect();
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return notExistingMapperDbs;
+    }
+
+    /**
+     * Gets all current states of executed XQuery files.
+     * 
+     * @return states.
+     */
+    public Map<String, Integer> getStates() {
+        return mStates;
     }
 
     /**
@@ -192,30 +339,21 @@ public class RestClient implements Client{
     }
 
     /**
-     * Executes a query over HTTP POST.
+     * Executes a query file over HTTP GET.
      * 
      * @param targetResource
      *            URL address.
-     * @param query
-     *            Query expression.
      * @return Query result or <code>null</code> if an error occurred.
      */
-    private String query(final String targetResource, final String query) {
+    private String runQuery(final String targetResource) {
         String result = null;
         URL url;
         try {
             url = new URL(targetResource);
             HttpURLConnection conn = (HttpURLConnection)url.openConnection();
-            conn.setDoOutput(true);
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/xml");
-            OutputStream out = conn.getOutputStream();
-            String request = "<query xmlns=\"http://www.basex.org/rest\"><text>" + query + "</text></query>";
-            out.write(request.getBytes("UTF-8"));
-            out.close();
             int code = conn.getResponseCode();
             if (code == HttpURLConnection.HTTP_OK) {
-                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), UTF8));
 
                 StringBuffer sb = new StringBuffer();
                 for (String line; (line = br.readLine()) != null;) {
@@ -224,7 +362,7 @@ public class RestClient implements Client{
                 br.close();
                 result = sb.toString();
             } else {
-                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getErrorStream(), "UTF-8"));
+                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getErrorStream(), UTF8));
                 for (String line; (line = br.readLine()) != null;) {
                     System.out.println(line);
                 }
@@ -238,15 +376,6 @@ public class RestClient implements Client{
             e.printStackTrace();
         }
         return result;
-    }
-
-    /**
-     * Simple getter.
-     * 
-     * @return Available data servers.
-     */
-    public Map<String, String> getDataServers() {
-        return mDataServers;
     }
 
 }

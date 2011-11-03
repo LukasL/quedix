@@ -22,7 +22,7 @@ import org.unikn.quedix.query.BaseXClient.Query;
  * 
  * @author Lukas Lewandowski, University of Konstanz, Germany.
  */
-public class SocketClient implements Client{
+public class SocketClient {
 
     /** Host name. */
     private static final String HOST = "aalto.disy.inf.uni-konstanz.de";
