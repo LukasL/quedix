@@ -17,6 +17,8 @@
 
 package org.unikn.quedix;
 
+import java.util.List;
+
 /**
  * This interface abstracts the available methods for execution of distribution, querying and deletion of our
  * map and reduce tasks.
@@ -51,5 +53,20 @@ public interface Client {
      * @return <code>true</code> if the deletion has been successful, <code>false</code> otherwise.
      */
     public boolean delete(final String xq);
+
+    /**
+     * Checks if MapperDb exists already.
+     * 
+     * @return List of servers where MapperDb do not exist.
+     */
+    public List<String> checkMapperDb();
+
+    /**
+     * Creates MapperDb on server.
+     * 
+     * @param dataServer
+     *            Server.
+     */
+    public void createMapperDb(final String dataServer);
 
 }

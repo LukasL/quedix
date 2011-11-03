@@ -22,7 +22,7 @@ import org.unikn.quedix.query.BaseXClient.Query;
  * 
  * @author Lukas Lewandowski, University of Konstanz, Germany.
  */
-public class SocketClient {
+public class SocketClient implements Client {
 
     /** Host name. */
     private static final String HOST = "aalto.disy.inf.uni-konstanz.de";
@@ -228,5 +228,35 @@ public class SocketClient {
                 c.close();
             }
         }
+    }
+
+    @Override
+    public boolean distribute(final byte[] xq) {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
+    @Override
+    public String[] execute(final String xq) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public boolean delete(final String xq) {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
+    @Override
+    public List<String> checkMapperDb() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public void createMapperDb(final String dataServer) {
+        // TODO Auto-generated method stub
+
     }
 }

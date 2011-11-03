@@ -125,12 +125,7 @@ public class RestClient implements Client {
         return isSuccessful;
     }
 
-    /**
-     * Creates a MapperDb for holding mapper xquery files.
-     * 
-     * @param targetResource
-     *            The resource location of the MapperDB.
-     */
+    @Override
     public void createMapperDb(final String targetResource) {
         URL url;
         try {
@@ -268,12 +263,7 @@ public class RestClient implements Client {
         return MAPPER_DB;
     }
 
-    /**
-     * This method checks if the MapperDb exists already, to decide if we need to create a db for the mapper
-     * files.
-     * 
-     * @return A {@link List} of data servers, where we have to create the MapperDb.
-     */
+    @Override
     public List<String> checkMapperDb() {
         List<String> notExistingMapperDbs = new ArrayList<String>();
         for (Map.Entry<String, String> dataServers : getDataServers().entrySet()) {
