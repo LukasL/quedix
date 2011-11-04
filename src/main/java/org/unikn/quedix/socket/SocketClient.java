@@ -250,7 +250,7 @@ public class SocketClient implements Client {
             for (Map.Entry<String, BaseXClient> cl : mClients.entrySet()) {
                 BaseXClient c = cl.getValue();
                 try {
-                    c.execute("open db MapperDb2");
+                    c.execute("open MapperDb2");
                     ByteArrayInputStream bais = new ByteArrayInputStream(xq);
                     c.store("map.xq", bais);
                 } catch (final IOException exc) {
@@ -269,9 +269,9 @@ public class SocketClient implements Client {
             for (Map.Entry<String, BaseXClient> cl : mClients.entrySet()) {
                 BaseXClient c = cl.getValue();
                 try {
-                    c.execute("open MapperDb2");
+//                    c.execute("open MapperDb2");
                     final OutputStream out = System.out;
-                    c.execute("run map.xq", out);
+                    c.execute("run ../data/MapperDb2/raw/map.xq", out);
                 } catch (final IOException exc) {
                     exc.printStackTrace();
                 }
