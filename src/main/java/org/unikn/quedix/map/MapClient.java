@@ -24,6 +24,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Map;
 
+import org.unikn.quedix.Client;
 import org.unikn.quedix.rest.RestClient;
 
 /**
@@ -33,8 +34,8 @@ import org.unikn.quedix.rest.RestClient;
  */
 public class MapClient {
 
-    /** REST client. */
-    private RestClient mClient;
+    /** Client. */
+    private Client mClient;
     /** XQ file name for mapping. */
     private String mMappingXq;
     /** XQ file for mapping. */
@@ -52,14 +53,14 @@ public class MapClient {
     }
 
     /**
-     * Constructor sets existing {@link RestClient} instance.
+     * Constructor sets existing {@link Client} instance.
      * 
      * @param client
-     *            {@link RestClient} instance.
+     *            {@link Client} instance.
      * @param xq
      *            XQ file for mapping.
      */
-    public MapClient(final RestClient client, final File xq) {
+    public MapClient(final Client client, final File xq) {
         mMappingXq = xq.getName();
         System.out.println("XQ file name: " + mMappingXq);
         mMappingFile = xq;

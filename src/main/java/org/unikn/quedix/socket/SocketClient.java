@@ -1,7 +1,14 @@
 package org.unikn.quedix.socket;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -12,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.basex.core.cmd.XQuery;
 import org.unikn.quedix.Client;
 import org.unikn.quedix.query.BaseXClient;
 import org.unikn.quedix.query.BaseXClient.Query;
@@ -54,12 +62,17 @@ public class SocketClient implements Client {
         try {
             SocketClient c = new SocketClient();
             // store an XML file with name MyL
-            c.exampleImporter(c.getClients());
+            // c.exampleImporter(c.getClients());
             // query MyL
-            System.out.println("QUERY RESULT: ***");
+            // System.out.println("QUERY RESULT: ***");
             long start = System.nanoTime();
-            c.queryParallel(c.getClients(), EQ4);
+            // c.queryParallel(c.getClients(), EQ4);
             // c.querySequential(c.getClients(), EQ2);
+            byte[] fileBytes = c.readByteArray(new File(args[0]));
+            String map = "map.xq";
+            c.distribute(fileBytes);
+            c.execute(map);
+            c.delete(map);
             c.shutdownClients();
             long end = System.nanoTime() - start;
             System.out.println("Complete Time: " + end / 1000000 + " ms");
@@ -232,20 +245,57 @@ public class SocketClient implements Client {
 
     @Override
     public boolean distribute(final byte[] xq) {
-        // TODO Auto-generated method stub
-        return false;
+        boolean isSuccessful = true;
+        if (mClients != null) {
+            for (Map.Entry<String, BaseXClient> cl : mClients.entrySet()) {
+                BaseXClient c = cl.getValue();
+                try {
+                    c.execute("open db MapperDb2");
+                    ByteArrayInputStream bais = new ByteArrayInputStream(xq);
+                    c.store("map.xq", bais);
+                } catch (final IOException exc) {
+                    isSuccessful = false;
+                    exc.printStackTrace();
+                }
+            }
+        }
+        return isSuccessful;
     }
 
     @Override
     public String[] execute(final String xq) {
-        // TODO Auto-generated method stub
-        return null;
+        String[] results = new String[mClients.size()];
+        if (mClients != null) {
+            for (Map.Entry<String, BaseXClient> cl : mClients.entrySet()) {
+                BaseXClient c = cl.getValue();
+                try {
+                    c.execute("open MapperDb2");
+                    final OutputStream out = System.out;
+                    c.execute("run map.xq", out);
+                } catch (final IOException exc) {
+                    exc.printStackTrace();
+                }
+            }
+        }
+        return results;
     }
 
     @Override
     public boolean delete(final String xq) {
-        // TODO Auto-generated method stub
-        return false;
+        boolean isSuccessful = true;
+        if (mClients != null) {
+            for (Map.Entry<String, BaseXClient> cl : mClients.entrySet()) {
+                BaseXClient c = cl.getValue();
+                try {
+                    c.execute("open MapperDb2");
+                    c.execute("delete " + xq);
+                } catch (final IOException exc) {
+                    isSuccessful = false;
+                    exc.printStackTrace();
+                }
+            }
+        }
+        return isSuccessful;
     }
 
     @Override
@@ -257,6 +307,28 @@ public class SocketClient implements Client {
     @Override
     public void createMapperDb(final String dataServer) {
         // TODO Auto-generated method stub
+
+    }
+
+    /**
+     * Reads input file and writes it to a byte array.
+     * 
+     * @param file
+     *            File name.
+     * @return Byte array representation of file.
+     * @throws IOException
+     *             Exception occurred.
+     */
+    private byte[] readByteArray(final File file) throws IOException {
+        BufferedInputStream input = new BufferedInputStream(new FileInputStream(file));
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        int i;
+        while((i = input.read()) != -1)
+            bos.write(i);
+        input.close();
+        byte[] content = bos.toByteArray();
+        bos.close();
+        return content;
 
     }
 }
