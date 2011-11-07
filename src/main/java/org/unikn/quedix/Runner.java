@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.unikn.quedix.map.MapClient;
-import org.unikn.quedix.query.BaseXClient;
+import org.unikn.quedix.socket.BaseXClient;
 import org.unikn.quedix.socket.SocketClient;
 
 /**
