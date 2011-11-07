@@ -23,6 +23,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.unikn.quedix.map.MapClient;
+import org.unikn.quedix.query.BaseXClient;
+import org.unikn.quedix.socket.SocketClient;
 
 /**
  * This class is responsible to initiate the map and reduce tasks.
@@ -34,8 +36,14 @@ public class Runner {
     public static final String DOC = "factbook";
     /** Example collection name. */
     public static final String REST_COL = "rest/" + DOC;
+    /** HTTP String. */
+    public static final String HTTP = "http://";
     /** Host name. */
     public static final String HOST = "aalto.disy.inf.uni-konstanz.de";
+    /** User name. */
+    private static final String USER = "admin";
+    /** Password. */
+    private static final String PW = "admin";
 
     /**
      * Main.
@@ -51,16 +59,19 @@ public class Runner {
 
     /**
      * Default constructor
+     * 
+     * @throws IOException
      */
-    public Runner(final String xq) {
+    public Runner(final String xq) throws IOException {
         long start = System.nanoTime();
         // Mapper
-        MapClient map = new MapClient(new File(xq), initHttpDataServers());
+        // MapClient map = new MapClient(new RestClient(initHttpDataServers()), new File(xq));
+        MapClient map = new MapClient(new SocketClient(initBaseXClients()), new File(xq));
         map.distribute();
         map.execute();
         map.cleanup();
         long time = System.nanoTime() - start;
-        System.out.println("\nComplete query execution time: " + time / 1000000 + " ms \n");
+        System.out.println("\nComplete mapper execution time: " + time / 1000000 + " ms \n");
 
     }
 
@@ -69,12 +80,27 @@ public class Runner {
      * 
      * @return {@link Map} of server mappings.
      */
-    private Map<String, String> initHttpDataServers() {
+    public Map<String, String> initHttpDataServers() {
         Map<String, String> dataServers = new HashMap<String, String>();
-        dataServers.put("http://" + HOST + ":8984/", REST_COL);
-        dataServers.put("http://" + HOST + ":8986/", REST_COL);
-        dataServers.put("http://" + HOST + ":8988/", REST_COL);
+        dataServers.put(HTTP + HOST + ":8984/", REST_COL);
+        dataServers.put(HTTP + HOST + ":8986/", REST_COL);
+        dataServers.put(HTTP + HOST + ":8988/", REST_COL);
         return dataServers;
+    }
+
+    /**
+     * Initialization of BaseX clients.
+     * 
+     * @return {@link Map} of connected BaseX clients.
+     * @throws IOException
+     *             Exception occurred, e.g. server are not running.
+     */
+    public Map<String, BaseXClient> initBaseXClients() throws IOException {
+        Map<String, BaseXClient> mClients = new HashMap<String, BaseXClient>();
+        mClients.put("site1", new BaseXClient(HOST, 1980, USER, PW));
+        mClients.put("site2", new BaseXClient(HOST, 1981, USER, PW));
+        mClients.put("site3", new BaseXClient(HOST, 1982, USER, PW));
+        return mClients;
     }
 
 }

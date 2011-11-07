@@ -11,7 +11,6 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -188,7 +187,7 @@ public class RestClient implements Client {
     }
 
     @Override
-    public boolean delete(final String xq) {
+    public boolean delete() {
         boolean isSuccessfull = true;
         ExecutorService executor = Executors.newFixedThreadPool(mDestinationMappers.size());
         List<Future<Boolean>> booleanResults = new ArrayList<Future<Boolean>>();

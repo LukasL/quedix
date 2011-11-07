@@ -1,14 +1,7 @@
 package org.unikn.quedix.socket;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,10 +12,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import org.basex.core.cmd.XQuery;
 import org.unikn.quedix.Client;
 import org.unikn.quedix.query.BaseXClient;
-import org.unikn.quedix.query.BaseXClient.Query;
 
 /**
  * This client class connects clients to BaseX server to simulate a distributed
@@ -32,12 +23,8 @@ import org.unikn.quedix.query.BaseXClient.Query;
  */
 public class SocketClient implements Client {
 
-    /** Host name. */
-    private static final String HOST = "aalto.disy.inf.uni-konstanz.de";
-    /** User name. */
-    private static final String USER = "admin";
-    /** Password. */
-    private static final String PW = "admin";
+    /** Mapper database for map file distribution. */
+    public static final String MAPPER_DB = "MapperDb2";
     /** document name for import and querying. */
     public static final String DOC = "factbook";
     /** Example query 1. */
@@ -51,172 +38,23 @@ public class SocketClient implements Client {
 
     /** client instances. */
     private Map<String, BaseXClient> mClients;
-
-    /**
-     * Starts the client application.
-     * 
-     * @param args
-     *            arguments.
-     */
-    public static void main(final String[] args) {
-        try {
-            SocketClient c = new SocketClient();
-            // store an XML file with name MyL
-            // c.exampleImporter(c.getClients());
-            // query MyL
-            // System.out.println("QUERY RESULT: ***");
-            long start = System.nanoTime();
-            // c.queryParallel(c.getClients(), EQ4);
-            // c.querySequential(c.getClients(), EQ2);
-            byte[] fileBytes = c.readByteArray(new File(args[0]));
-            String map = "map.xq";
-            c.distribute(fileBytes);
-            c.execute(map);
-            c.delete(map);
-            c.shutdownClients();
-            long end = System.nanoTime() - start;
-            System.out.println("Complete Time: " + end / 1000000 + " ms");
-        } catch (final IOException exce) {
-            exce.printStackTrace();
-        }
-
-    }
+    /** Map names. */
+    private Map<String, String> mMapNames;
 
     /**
      * Constructor connects clients to BaseX server.
      * 
-     * @throws IOException
-     */
-    public SocketClient() throws IOException {
-        this.mClients = connectClients();
-    }
-
-    /**
-     * Querying of all {@link BaseXClient} instances.
-     * 
      * @param clients
-     *            The clients.
-     * @param query
-     *            The query.
+     *            {@link Map} of clients to server mapping.
      * @throws IOException
      *             Exception occurred.
      */
-    public void querySequential(final Map<String, BaseXClient> clients, final String query)
-        throws IOException {
-        StringBuilder sb = new StringBuilder();
+    public SocketClient(final Map<String, BaseXClient> clients) throws IOException {
+        this.mClients = clients;
+        mMapNames = new HashMap<String, String>();
         for (Map.Entry<String, BaseXClient> cls : clients.entrySet()) {
-            long start = System.nanoTime();
-            BaseXClient bx = cls.getValue();
-            Query q = bx.query(query);
-            while(q.more()) {
-                sb.append(q.next());
-            }
-            long time = System.nanoTime() - start;
-            System.out.println("Time for " + cls.getKey() + ": " + time / 1000000 + " ms");
+            mMapNames.put(cls.getKey(), "map" + System.nanoTime() + ".xq");
         }
-        System.out.println("Complete Result: \n" + sb.toString());
-    }
-
-    /**
-     * Querying of all {@link BaseXClient} instances.
-     * 
-     * @param clients
-     *            The clients.
-     * @param query
-     *            The query.
-     * @throws IOException
-     *             Exception occurred.
-     */
-    public void queryParallel(final Map<String, BaseXClient> clients, final String query) throws IOException {
-        List<Future<String>> stringResults = new ArrayList<Future<String>>();
-        ExecutorService executor = Executors.newFixedThreadPool(clients.size());
-        for (Map.Entry<String, BaseXClient> cls : clients.entrySet()) {
-            final Map.Entry<String, BaseXClient> cl = cls;
-
-            Callable<String> task = new Callable<String>() {
-
-                @Override
-                public String call() throws Exception {
-                    System.out.println("Result from: " + cl.getKey());
-                    long start = System.nanoTime();
-                    BaseXClient bx = cl.getValue();
-                    Query q;
-                    q = bx.query(query);
-                    StringBuilder sb = new StringBuilder();
-                    while(q.more()) {
-                        sb.append(q.next());
-                    }
-                    long time = System.nanoTime() - start;
-                    System.out.println("Time for " + cl.getKey() + ": " + time / 1000000 + " ms");
-
-                    return sb.toString();
-                }
-            };
-            stringResults.add(executor.submit(task));
-        }
-        // This will make the executor accept no new threads
-        // and finish all existing threads in the queue
-        executor.shutdown();
-        // Wait until all threads are finish
-        while(!executor.isTerminated())
-            ;
-
-        for (Future<String> future : stringResults) {
-            try {
-                System.out.println(future.get());
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            } catch (ExecutionException e) {
-                e.printStackTrace();
-            }
-        }
-
-    }
-
-    /**
-     * Example importer, creates a new database with name "MyL"
-     * 
-     * @param cls
-     * @throws IOException
-     */
-    public void exampleImporter(final Map<String, BaseXClient> cls) throws IOException {
-        for (Map.Entry<String, BaseXClient> c : cls.entrySet()) {
-            InputStream is = SocketClient.class.getResourceAsStream("/" + DOC + ".xml");
-            create(c.getValue(), DOC, is);
-            is.close();
-        }
-    }
-
-    /**
-     * Creates a new document.
-     * 
-     * @param c
-     *            Client instance.
-     * @param dbName
-     *            Database name.
-     * @param xml
-     *            Input.
-     * @throws IOException
-     *             Exception occurred.
-     */
-    public void create(final BaseXClient c, final String dbName, final InputStream xml) throws IOException {
-        BaseXClient bx = c;
-        bx.create(dbName, xml);
-    }
-
-    /**
-     * Initialization of BaseX clients.
-     * 
-     * @return {@link Map} of connected BaseX clients.
-     * @throws IOException
-     *             Exception occurred, e.g. server are not running.
-     */
-    public Map<String, BaseXClient> connectClients() throws IOException {
-        mClients = new HashMap<String, BaseXClient>();
-        mClients.put("site1", new BaseXClient(HOST, 1980, USER, PW));
-        mClients.put("site2", new BaseXClient(HOST, 1981, USER, PW));
-        mClients.put("site3", new BaseXClient(HOST, 1982, USER, PW));
-        return mClients;
     }
 
     /**
@@ -247,15 +85,45 @@ public class SocketClient implements Client {
     public boolean distribute(final byte[] xq) {
         boolean isSuccessful = true;
         if (mClients != null) {
-            for (Map.Entry<String, BaseXClient> cl : mClients.entrySet()) {
-                BaseXClient c = cl.getValue();
+            List<Future<Boolean>> booleanResults = new ArrayList<Future<Boolean>>();
+            ExecutorService executor = Executors.newFixedThreadPool(mClients.size());
+            for (Map.Entry<String, BaseXClient> cls : mClients.entrySet()) {
+                final Map.Entry<String, BaseXClient> cl = cls;
+
+                Callable<Boolean> task = new Callable<Boolean>() {
+
+                    @Override
+                    public Boolean call() throws Exception {
+                        try {
+                            long start = System.nanoTime();
+                            BaseXClient c = cl.getValue();
+                            c.execute("open " + MAPPER_DB);
+                            ByteArrayInputStream bais = new ByteArrayInputStream(xq);
+                            c.store(mMapNames.get(cl.getKey()), bais);
+                            long time = System.nanoTime() - start;
+                            System.out.println("Time for distribution of map file to" + cl.getKey() + ": "
+                            + time / 1000000 + " ms");
+                            return true;
+
+                        } catch (final IOException exc) {
+                            exc.printStackTrace();
+                        }
+                        return null;
+                    }
+                };
+                booleanResults.add(executor.submit(task));
+            }
+            executor.shutdown();
+            while(!executor.isTerminated())
+                ;
+            for (Future<Boolean> future : booleanResults) {
                 try {
-                    c.execute("open MapperDb2");
-                    ByteArrayInputStream bais = new ByteArrayInputStream(xq);
-                    c.store("map.xq", bais);
-                } catch (final IOException exc) {
-                    isSuccessful = false;
-                    exc.printStackTrace();
+                    if (!future.get())
+                        isSuccessful = false;
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (ExecutionException e) {
+                    e.printStackTrace();
                 }
             }
         }
@@ -264,16 +132,49 @@ public class SocketClient implements Client {
 
     @Override
     public String[] execute(final String xq) {
-        String[] results = new String[mClients.size()];
+        String[] results = {};
         if (mClients != null) {
-            for (Map.Entry<String, BaseXClient> cl : mClients.entrySet()) {
-                BaseXClient c = cl.getValue();
+            results = new String[mClients.size()];
+            List<Future<String>> stringResults = new ArrayList<Future<String>>();
+            ExecutorService executor = Executors.newFixedThreadPool(mClients.size());
+            for (Map.Entry<String, BaseXClient> cls : mClients.entrySet()) {
+                final Map.Entry<String, BaseXClient> cl = cls;
+
+                Callable<String> task = new Callable<String>() {
+
+                    @Override
+                    public String call() throws Exception {
+                        try {
+                            long start = System.nanoTime();
+                            BaseXClient c = cl.getValue();
+                            // final OutputStream out = System.out;
+                            String result =
+                                c.execute("run ../data/" + MAPPER_DB + "/raw/" + mMapNames.get(cl.getKey()));
+                            long time = System.nanoTime() - start;
+                            System.out.println("Time for execution the map query at " + cl.getKey() + ": "
+                            + time / 1000000 + " ms");
+                            return result;
+
+                        } catch (final IOException exc) {
+                            exc.printStackTrace();
+                        }
+                        return null;
+                    }
+                };
+                stringResults.add(executor.submit(task));
+            }
+            executor.shutdown();
+            while(!executor.isTerminated())
+                ;
+
+            int i = 0;
+            for (Future<String> future : stringResults) {
                 try {
-//                    c.execute("open MapperDb2");
-                    final OutputStream out = System.out;
-                    c.execute("run ../data/MapperDb2/raw/map.xq", out);
-                } catch (final IOException exc) {
-                    exc.printStackTrace();
+                    results[i++] = future.get();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (ExecutionException e) {
+                    e.printStackTrace();
                 }
             }
         }
@@ -281,17 +182,47 @@ public class SocketClient implements Client {
     }
 
     @Override
-    public boolean delete(final String xq) {
+    public boolean delete() {
         boolean isSuccessful = true;
         if (mClients != null) {
-            for (Map.Entry<String, BaseXClient> cl : mClients.entrySet()) {
-                BaseXClient c = cl.getValue();
+            List<Future<Boolean>> booleanResults = new ArrayList<Future<Boolean>>();
+            ExecutorService executor = Executors.newFixedThreadPool(mClients.size());
+            for (Map.Entry<String, BaseXClient> cls : mClients.entrySet()) {
+                final Map.Entry<String, BaseXClient> cl = cls;
+
+                Callable<Boolean> task = new Callable<Boolean>() {
+
+                    @Override
+                    public Boolean call() throws Exception {
+                        try {
+                            long start = System.nanoTime();
+                            BaseXClient c = cl.getValue();
+                            c.execute("open " + MAPPER_DB);
+                            c.execute("delete " + mMapNames.get(cl.getKey()));
+                            long time = System.nanoTime() - start;
+                            System.out.println("Time for deletion of map file at" + cl.getKey() + ": " + time
+                            / 1000000 + " ms");
+                            return true;
+
+                        } catch (final IOException exc) {
+                            exc.printStackTrace();
+                        }
+                        return null;
+                    }
+                };
+                booleanResults.add(executor.submit(task));
+            }
+            executor.shutdown();
+            while(!executor.isTerminated())
+                ;
+            for (Future<Boolean> future : booleanResults) {
                 try {
-                    c.execute("open MapperDb2");
-                    c.execute("delete " + xq);
-                } catch (final IOException exc) {
-                    isSuccessful = false;
-                    exc.printStackTrace();
+                    if (!future.get())
+                        isSuccessful = false;
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (ExecutionException e) {
+                    e.printStackTrace();
                 }
             }
         }
@@ -300,35 +231,30 @@ public class SocketClient implements Client {
 
     @Override
     public List<String> checkMapperDb() {
-        // TODO Auto-generated method stub
-        return null;
+        List<String> result = new ArrayList<String>();
+        if (mClients != null) {
+            for (Map.Entry<String, BaseXClient> cl : mClients.entrySet()) {
+                BaseXClient c = cl.getValue();
+                try {
+                    c.execute("list " + MAPPER_DB);
+                } catch (final IOException exc) {
+                    exc.printStackTrace();
+                    result.add(cl.getKey());
+                    System.out.println(cl.getKey() + " will be prepared for creation process.");
+                }
+            }
+        }
+        return result;
     }
 
     @Override
     public void createMapperDb(final String dataServer) {
-        // TODO Auto-generated method stub
-
-    }
-
-    /**
-     * Reads input file and writes it to a byte array.
-     * 
-     * @param file
-     *            File name.
-     * @return Byte array representation of file.
-     * @throws IOException
-     *             Exception occurred.
-     */
-    private byte[] readByteArray(final File file) throws IOException {
-        BufferedInputStream input = new BufferedInputStream(new FileInputStream(file));
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        int i;
-        while((i = input.read()) != -1)
-            bos.write(i);
-        input.close();
-        byte[] content = bos.toByteArray();
-        bos.close();
-        return content;
+        BaseXClient c = mClients.get(dataServer);
+        try {
+            c.execute("create db " + MAPPER_DB);
+        } catch (final IOException exc) {
+            exc.printStackTrace();
+        }
 
     }
 }

@@ -22,10 +22,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Map;
 
 import org.unikn.quedix.Client;
-import org.unikn.quedix.rest.RestClient;
 
 /**
  * This class is the client representation for executing/sending map XQuery scripts.
@@ -40,17 +38,6 @@ public class MapClient {
     private String mMappingXq;
     /** XQ file for mapping. */
     private File mMappingFile;
-
-    /**
-     * Default constructor.
-     * 
-     * @param xq
-     *            XQ file for mapping.
-     * 
-     */
-    public MapClient(final File xq, final Map<String, String> servers) {
-        this(new RestClient(servers), xq);
-    }
 
     /**
      * Constructor sets existing {@link Client} instance.
@@ -96,7 +83,7 @@ public class MapClient {
      *            URL address.
      */
     public void cleanup() {
-        mClient.delete(mMappingXq);
+        mClient.delete();
     }
 
     /**

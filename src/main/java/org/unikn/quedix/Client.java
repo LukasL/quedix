@@ -48,11 +48,9 @@ public interface Client {
     /**
      * This method delete map.xq or reduce.xq files from the data server.
      * 
-     * @param xq
-     *            The path of the XQ file.
      * @return <code>true</code> if the deletion has been successful, <code>false</code> otherwise.
      */
-    public boolean delete(final String xq);
+    public boolean delete();
 
     /**
      * Checks if MapperDb exists already.
