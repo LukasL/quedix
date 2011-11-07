@@ -13,7 +13,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import org.unikn.quedix.Client;
-import org.unikn.quedix.query.BaseXClient;
 
 /**
  * This client class connects clients to BaseX server to simulate a distributed
