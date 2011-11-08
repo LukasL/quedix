@@ -3,6 +3,8 @@ package org.unikn.quedix.rest;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -19,6 +21,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
 
 import org.unikn.quedix.Client;
 
@@ -39,24 +47,33 @@ public class RestClient implements Client {
     public static final String DOC = "factbook";
     /** Example collection name. */
     public static final String COL = "rest/" + DOC;
+    /** PUT HTTP method string. */
+    private static final String PUT = "PUT";
+    /** Package size. */
+    private static final int PACKAGE_SIZE = 67108864;
     /** UTF-8 string. */
     private static final String UTF8 = "UTF-8";
     /** MapperDb name for holding mapping query files. */
     private final String MAPPER_DB = "rest/MapperDb";
     /** Registered data servers. */
     private Map<String, String> mDataServers;
-    /** PUT HTTP method string. */
-    private static final String PUT = "PUT";
     /** Mappers located at destinations. */
     private List<String> mDestinationMappers;
     /** Map of executed server files inclusive state information. */
     private Map<String, Integer> mStates;
+    /** Data servers array for distribution. */
+    private String[] mDataServersArray;
 
     /**
      * Default constructor.
      */
     public RestClient(final Map<String, String> dataServers) {
         mDataServers = dataServers;
+        mDataServersArray = new String[mDataServers.size()];
+        int i = 0;
+        for (Map.Entry<String, String> serverEntry : mDataServers.entrySet())
+            mDataServersArray[i++] = serverEntry.getKey() + "rest";
+
         mDestinationMappers = new ArrayList<String>();
         mStates = new ConcurrentHashMap<String, Integer>();
     }
@@ -80,7 +97,7 @@ public class RestClient implements Client {
     }
 
     @Override
-    public boolean distribute(final byte[] xq) {
+    public boolean distributeXq(final byte[] xq) {
         boolean isSuccessful = true;
         ExecutorService executor = Executors.newFixedThreadPool(getDataServers().size());
         for (Map.Entry<String, String> dataServer : getDataServers().entrySet()) {
@@ -282,6 +299,97 @@ public class RestClient implements Client {
         return notExistingMapperDbs;
     }
 
+    @Override
+    public boolean distributeCollection(final String collection, final String name) throws Exception {
+        boolean isSuccessful = true;
+        long start = System.nanoTime();
+        // input folder containing XML documents to be stored.
+        final File inputDir = new File(collection);
+
+        // name of collection in distributed storage.
+        final String collectionName = name;
+        System.out.println("Start import...");
+        int runner = 0;
+        int creator = 0;
+        File[] files = inputDir.listFiles();
+        int filesCount = files.length;
+        System.out.println("Files to import: " + filesCount);
+        long outSize = 0;
+        int ind = 0;
+        DistributionService distributionService = null;
+        BufferedOutputStream bos = null;
+        Transformer trans = TransformerFactory.newInstance().newTransformer();
+        trans.setOutputProperty(OutputKeys.INDENT, "no");
+        trans.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+        final byte[] colStart = "<subcollection>".getBytes();
+        final byte[] colEnd = "</subcollection>".getBytes();
+        for (File file : files) {
+            if (file.getAbsolutePath().endsWith(".xml")) {
+                // print progress
+                int div = runner % (filesCount / 10);
+                if (div < 1) {
+                    double progress = (double)runner / filesCount * 100;
+                    System.out.println("Progress: " + progress + " %.");
+                }
+                // nur beim start ausgefŸhrt;
+                if (outSize == 0) {
+                    // start subcollection tag
+                    distributionService = new DistributionService(next(mDataServersArray, ind++));
+                    // init
+                    if (creator < mDataServersArray.length) {
+                        distributionService.initUpdate(collectionName);
+                    } else
+                        distributionService.initAdd(collectionName + "/" + file.getName());
+                    bos = new BufferedOutputStream(distributionService.getOutputStream());
+                    bos.write(colStart);
+                }
+
+                else if ((outSize + file.length() > PACKAGE_SIZE)) {
+                    // file to big. close first and write new
+                    bos.write(colEnd);
+                    bos.close();
+                    if (creator < mDataServersArray.length) {
+                        if (!distributionService.execUpdate())
+                            isSuccessful = false;
+                        creator++;
+                    } else if (!distributionService.execAdd())
+                        isSuccessful = false;
+                    outSize = 0;
+                    // start subcollection tag
+                    distributionService = new DistributionService(next(mDataServersArray, ind++));
+                    // init
+                    if (creator < mDataServersArray.length) {
+                        distributionService.initUpdate(collectionName);
+                    } else
+                        distributionService.initAdd(collectionName + "/" + file.getName());
+                    bos = new BufferedOutputStream(distributionService.getOutputStream());
+                    bos.write(colStart);
+                }
+
+                BufferedInputStream is = new BufferedInputStream(new FileInputStream(file));
+                trans.transform(new StreamSource(is), new StreamResult(bos));
+                is.close();
+                runner++;
+                outSize = outSize + file.length();
+            }
+        }
+        bos.write(colEnd);
+        bos.close();
+        if (creator < mDataServersArray.length) {
+            if (!distributionService.execUpdate())
+                isSuccessful = false;
+            creator++;
+        } else if (!distributionService.execAdd())
+            isSuccessful = false;
+        System.out.println("Progress: 100.0 %.");
+        System.out.println("Import finished.");
+        System.out.println(ind + " subcollections distributed.");
+        long end = System.nanoTime() - start;
+        System.out.println("Done in " + ((double)end / 1000000000.0) + " s");
+
+        return isSuccessful;
+    }
+
     /**
      * Gets all current states of executed XQuery files.
      * 
@@ -365,6 +473,20 @@ public class RestClient implements Client {
             e.printStackTrace();
         }
         return result;
+    }
+
+    /**
+     * This method return the next host in a round robin manner to support
+     * uniform distribution.
+     * 
+     * @param server
+     *            servers.
+     * @param loop
+     *            runner.
+     * @return next host name.
+     */
+    private String next(final String[] server, final int runner) {
+        return server[runner % server.length];
     }
 
 }

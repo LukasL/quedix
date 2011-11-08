@@ -34,7 +34,7 @@ public interface Client {
      *            An XQ file as byte array.
      * @return <code>true</code> if the distribution has been successful, <code>false</code> otherwise.
      */
-    public boolean distribute(final byte[] xq);
+    public boolean distributeXq(final byte[] xq);
 
     /**
      * Executes XQ files on the server and receives results.
@@ -66,5 +66,18 @@ public interface Client {
      *            Server.
      */
     public void createMapperDb(final String dataServer);
+
+    /**
+     * Distributes an XML collection to the available servers.
+     * 
+     * @param collection
+     *            Path of XML directory.
+     * @param name
+     *            The name of XML collection.
+     * @return <code>true</code> if the distribution was successful, <code>false</code> otherwise.
+     * @exception Exception
+     *                Exception occurred.
+     */
+    public boolean distributeCollection(final String collection, final String name) throws Exception;
 
 }

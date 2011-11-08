@@ -81,7 +81,7 @@ public class SocketClient implements Client {
     }
 
     @Override
-    public boolean distribute(final byte[] xq) {
+    public boolean distributeXq(final byte[] xq) {
         boolean isSuccessful = true;
         if (mClients != null) {
             List<Future<Boolean>> booleanResults = new ArrayList<Future<Boolean>>();
@@ -255,5 +255,11 @@ public class SocketClient implements Client {
             exc.printStackTrace();
         }
 
+    }
+
+    @Override
+    public boolean distributeCollection(final String collection, final String name) {
+        // TODO Auto-generated method stub
+        return false;
     }
 }

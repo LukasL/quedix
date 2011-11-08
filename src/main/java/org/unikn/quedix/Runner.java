@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.unikn.quedix.map.MapClient;
+import org.unikn.quedix.rest.RestClient;
 import org.unikn.quedix.socket.BaseXClient;
 import org.unikn.quedix.socket.SocketClient;
 
@@ -35,7 +36,7 @@ public class Runner {
     /** document for importing and querying. */
     public static final String DOC = "factbook";
     /** Example collection name. */
-    public static final String REST_COL = "rest/" + DOC;
+    public static final String REST_COL = "rest/";
     /** HTTP String. */
     public static final String HTTP = "http://";
     /** Host name. */
@@ -49,12 +50,32 @@ public class Runner {
      * Main.
      * 
      * @param args
-     *            Program arguments are input paths to map and reduce XQuery files.
+     *            Program arguments are input paths to map and reduce XQuery files or XML collection.
      * @throws IOException
      */
     public static void main(final String[] args) throws IOException {
-        new Runner(args[0]);
 
+        if (args.length == 1)
+            // Map
+            new Runner(args[0]);
+        else
+            // Distribution of collection
+            new Runner(args[0], args[1]);
+
+    }
+
+    /**
+     * Default constructor
+     * 
+     * @throws IOException
+     */
+    public Runner(final String xmlDir, final String name) throws IOException {
+        Client cl = new RestClient(initHttpDataServers());
+        try {
+            cl.distributeCollection(xmlDir, name);
+        } catch (final Exception exc) {
+            exc.printStackTrace();
+        }
     }
 
     /**

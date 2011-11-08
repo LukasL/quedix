@@ -58,7 +58,7 @@ public class MapClient {
 
     public void distribute() {
         try {
-            mClient.distribute(readByteArray(mMappingFile));
+            mClient.distributeXq(readByteArray(mMappingFile));
         } catch (final IOException exce) {
             exce.printStackTrace();
         }
