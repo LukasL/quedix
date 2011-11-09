@@ -50,7 +50,7 @@ public class Runner {
 			// Distribution of collection
 			new Runner(args[0], args[1]);
 		else
-			// Error message because false user input parameters.
+			// Error message because false user input parameters
 			System.err.println("False input parameters.");
 
 	}
@@ -76,13 +76,13 @@ public class Runner {
 	 * @param xq
 	 *            XQuery file.
 	 * @param type
-	 *            Client type, either REST or sockets.
+	 *            Client type, either {@link ClientType#REST} or
+	 *            {@link ClientType#SOCKETS}.
 	 * @throws IOException
 	 *             XQ file not found.
 	 */
 	public Runner(final String xq, final ClientType type) throws IOException {
 		long start = System.nanoTime();
-		// Mapper
 		if (type == ClientType.REST)
 			map(new MapClient(new RestClient(initHttpDataServers()), new File(
 					xq)));
@@ -91,8 +91,8 @@ public class Runner {
 			map(new MapClient(client, new File(xq)));
 			client.shutdownClients();
 		}
-		long time = System.nanoTime() - start;
-		System.out.println("\nComplete mapper execution time: " + time
+		long end = System.nanoTime() - start;
+		System.out.println("\nComplete mapper execution time: " + end
 				/ 1000000 + " ms \n");
 
 	}
