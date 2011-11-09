@@ -6,7 +6,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-import org.unikn.quedix.Client;
+import org.unikn.quedix.core.Client;
 
 /**
  * This class is the client representation for executing/sending map XQuery scripts.

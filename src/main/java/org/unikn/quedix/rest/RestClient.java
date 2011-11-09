@@ -28,7 +28,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 
-import org.unikn.quedix.Client;
+import org.unikn.quedix.core.Client;
 
 /**
  * This class is responsible to execute parallel queries over HTTP.

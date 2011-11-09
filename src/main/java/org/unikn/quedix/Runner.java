@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.unikn.quedix.core.Client;
+import org.unikn.quedix.core.ClientType;
 import org.unikn.quedix.map.MapClient;
 import org.unikn.quedix.rest.RestClient;
 import org.unikn.quedix.socket.BaseXClient;
@@ -37,15 +39,19 @@ public class Runner {
 	 *            Program arguments are input paths to map and reduce XQuery
 	 *            files or XML collection.
 	 * @throws IOException
+	 *             File not found.
 	 */
 	public static void main(final String[] args) throws IOException {
 
 		if (args.length == 1)
 			// Map
-			new Runner(args[0]);
-		else
+			new Runner(args[0], ClientType.REST);
+		else if (args.length == 2)
 			// Distribution of collection
 			new Runner(args[0], args[1]);
+		else
+			// Error message because false user input parameters.
+			System.err.println("False input parameters.");
 
 	}
 
@@ -67,19 +73,24 @@ public class Runner {
 	/**
 	 * Constructor creates and executes a map job.
 	 * 
+	 * @param xq
+	 *            XQuery file.
+	 * @param type
+	 *            Client type, either REST or sockets.
 	 * @throws IOException
 	 *             XQ file not found.
 	 */
-	public Runner(final String xq) throws IOException {
+	public Runner(final String xq, final ClientType type) throws IOException {
 		long start = System.nanoTime();
 		// Mapper
-		// MapClient map = new MapClient(new RestClient(initHttpDataServers()),
-		// new File(xq));
-		MapClient map = new MapClient(new SocketClient(initBaseXClients()),
-				new File(xq));
-		map.distribute();
-		map.execute();
-		map.cleanup();
+		if (type == ClientType.REST)
+			map(new MapClient(new RestClient(initHttpDataServers()), new File(
+					xq)));
+		else {
+			SocketClient client = new SocketClient(initBaseXClients());
+			map(new MapClient(client, new File(xq)));
+			client.shutdownClients();
+		}
 		long time = System.nanoTime() - start;
 		System.out.println("\nComplete mapper execution time: " + time
 				/ 1000000 + " ms \n");
@@ -87,11 +98,23 @@ public class Runner {
 	}
 
 	/**
-	 * Initializes the example servers.
+	 * Executes mapping functions.
+	 * 
+	 * @param mapper
+	 *            {@link MapClient} instance.
+	 */
+	private void map(final MapClient mapper) {
+		mapper.distribute();
+		mapper.execute();
+		mapper.cleanup();
+	}
+
+	/**
+	 * Initializes the example servers for REST calls.
 	 * 
 	 * @return {@link Map} of server mappings.
 	 */
-	public Map<String, String> initHttpDataServers() {
+	private Map<String, String> initHttpDataServers() {
 		Map<String, String> dataServers = new HashMap<String, String>();
 		dataServers.put(HTTP + HOST + ":8984/", REST_COL);
 		dataServers.put(HTTP + HOST + ":8986/", REST_COL);
@@ -106,7 +129,7 @@ public class Runner {
 	 * @throws IOException
 	 *             Exception occurred, e.g. servers are not running.
 	 */
-	public Map<String, BaseXClient> initBaseXClients() throws IOException {
+	private Map<String, BaseXClient> initBaseXClients() throws IOException {
 		Map<String, BaseXClient> clients = new HashMap<String, BaseXClient>();
 		clients.put("site1", new BaseXClient(HOST, 1980, USER, PW));
 		clients.put("site2", new BaseXClient(HOST, 1981, USER, PW));
