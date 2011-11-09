@@ -33,6 +33,7 @@ import org.unikn.quedix.socket.SocketClient;
  * @author Lukas Lewandowski, University of Konstanz.
  */
 public class Runner {
+	
     /** document for importing and querying. */
     public static final String DOC = "factbook";
     /** Example collection name. */
@@ -42,9 +43,9 @@ public class Runner {
     /** Host name. */
     public static final String HOST = "aalto.disy.inf.uni-konstanz.de";
     /** User name. */
-    private static final String USER = "admin";
+    public static final String USER = "admin";
     /** Password. */
-    private static final String PW = "admin";
+    public static final String PW = "admin";
 
     /**
      * Main.
