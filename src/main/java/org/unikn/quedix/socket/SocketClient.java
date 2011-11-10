@@ -1,6 +1,11 @@
 package org.unikn.quedix.socket;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -12,7 +17,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
+
 import org.unikn.quedix.core.Client;
+import org.unikn.quedix.rest.DistributionService;
 
 /**
  * This client class connects clients to BaseX server to simulate a distributed
@@ -34,11 +46,16 @@ public class SocketClient implements Client {
     public static final String EQ3 = "1";
     /** Example query 4. */
     public static final String EQ4 = "count(doc('factbook')/descendant::text())*2";
+    /** Package size. */
+    private static final int PACKAGE_SIZE = 67108864;
+    // private static final int PACKAGE_SIZE = 100864;
 
     /** client instances. */
     private Map<String, BaseXClient> mClients;
     /** Map names. */
     private Map<String, String> mMapNames;
+
+    private Map<BaseXClient, List<String>> mDbClientMapping;
 
     /**
      * Constructor connects clients to BaseX server.
@@ -51,8 +68,12 @@ public class SocketClient implements Client {
     public SocketClient(final Map<String, BaseXClient> clients) throws IOException {
         this.mClients = clients;
         mMapNames = new HashMap<String, String>();
+        mDbClientMapping = new HashMap<BaseXClient, List<String>>();
         for (Map.Entry<String, BaseXClient> cls : clients.entrySet()) {
             mMapNames.put(cls.getKey(), "map" + System.nanoTime() + ".xq");
+            List<String> dbs = new ArrayList<String>();
+            dbs.add("coli");
+            mDbClientMapping.put(cls.getValue(), dbs);
         }
     }
 
@@ -258,8 +279,107 @@ public class SocketClient implements Client {
     }
 
     @Override
-    public boolean distributeCollection(final String collection, final String name) {
-        // TODO Auto-generated method stub
-        return false;
+    public boolean distributeCollection(final String collection, final String name) throws IOException {
+        boolean isSuccessful = true;
+        long start = System.nanoTime();
+        // input folder containing XML documents to be stored.
+        final File inputDir = new File(collection);
+        System.out.println("Start import...");
+        int runner = 0;
+        File[] files = inputDir.listFiles();
+        int filesCount = files.length;
+        System.out.println("Files to import: " + filesCount);
+        long outSize = 0;
+        int ind = 0;
+        String[] serverIds = new String[mClients.size()];
+        int i = 0;
+        for (Map.Entry<String, BaseXClient> entry : mClients.entrySet())
+            serverIds[i++] = entry.getKey();
+        BaseXClient client = null;
+        for (File file : files) {
+            if (file.getAbsolutePath().endsWith(".xml")) {
+                BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+                // print progress
+                int div = runner % (filesCount / 10);
+                if (div < 1) {
+                    double progress = (double)runner / filesCount * 100;
+                    System.out.println("Progress: " + progress + " %.");
+                }
+                // nur beim start ausgefuehrt;
+                if (outSize == 0) {
+                    client = next(serverIds, ind++);
+                    distributeXml(client, name, bis, file);
+                } else if ((outSize + file.length()) > PACKAGE_SIZE) {
+                    outSize = 0;
+                    client = next(serverIds, ind++);
+                    distributeXml(client, name, bis, file);
+                } else {
+                    distributeXml(client, name, bis, file);
+                }
+                outSize += file.length();
+                bis.close();
+                runner++;
+            }
+        }
+        System.out.println("Progress: 100.0 %.");
+        System.out.println("Distribution of collection finished.");
+        long end = System.nanoTime() - start;
+        System.out.println("Done in " + ((double)end / 1000000000.0) + " s");
+
+        return isSuccessful;
+    }
+
+    /**
+     * This method return the next client in a round robin manner to support
+     * uniform distribution.
+     * 
+     * @param server
+     *            servers.
+     * @param loop
+     *            runner.
+     * @return next BaseXClient instance.
+     */
+    private BaseXClient next(String[] server, final int runner) {
+        return mClients.get(server[runner % server.length]);
+    }
+
+    /**
+     * Checks existence of collection.
+     * 
+     * @param client
+     *            {@link BaseXClient} instance.
+     * @param collectionName
+     *            Collection name.
+     * @return <code>true</code> if collection exists, <code>false</code> otherwise.
+     */
+    private boolean checkCollectionExistence(final BaseXClient client, final String collectionName) {
+        return mDbClientMapping.get(client).contains(collectionName);
+    }
+
+    /**
+     * Distributes file.
+     * 
+     * @param client
+     *            {@link BaseXClient} instance.
+     * @param name
+     *            Collection file.
+     * @param bis
+     *            {@link BufferedInputStream} holding XML file.
+     * @param file
+     *            {@link File} reference.
+     * @throws IOException
+     *             Exception while writing with client.
+     */
+    private void distributeXml(final BaseXClient client, final String name, final BufferedInputStream bis,
+        final File file) throws IOException {
+        if (checkCollectionExistence(client, name)) {
+            client.execute("open " + name);
+            client.add(name + "/" + file.getName(), bis);
+        } else {
+            client.create(name, bis);
+            List<String> l = mDbClientMapping.get(client);
+            if (!l.contains(name))
+                l.add(name);
+        }
     }
 }
