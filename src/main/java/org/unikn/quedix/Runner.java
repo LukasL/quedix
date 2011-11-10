@@ -45,7 +45,7 @@ public class Runner {
 
 		if (args.length == 1)
 			// Map
-			new Runner(args[0], ClientType.REST);
+			new Runner(args[0], ClientType.SOCKETS);
 		else if (args.length == 2)
 			// Distribution of collection
 			new Runner(args[0], args[1]);
