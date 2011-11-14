@@ -7,12 +7,20 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import javax.xml.transform.sax.SAXSource;
+
+import org.xml.sax.InputSource;
+
+import org.basex.build.Builder;
+import org.basex.build.Parser;
+import org.basex.build.xml.SAXWrapper;
 import org.basex.core.Context;
 import org.basex.core.cmd.CreateDB;
 import org.basex.data.MemData;
 import org.basex.data.Result;
 import org.basex.io.IO;
 import org.basex.io.IOContent;
+import org.basex.io.in.BufferInput;
 import org.basex.query.QueryException;
 import org.basex.query.QueryProcessor;
 
@@ -24,28 +32,20 @@ import org.basex.query.QueryProcessor;
 public class ReduceClient {
 
     /** {@link InputStream} for local execution of reduce process. */
-    private byte[] mInput;
+    private InputStream mInputStream;
     /** Context. */
     private Context mCtx;
     /** reduce process query. */
     private byte[] mReduceFile;
 
     /**
-     * Default constructor.
-     */
-    public ReduceClient() {
-        // default
-        this(null);
-    }
-
-    /**
-     * Sets input as byte array.
+     * Sets input stream.
      * 
      * @param input
-     *            Input for reduce query evaluation.
+     *            {@link InputStream} stream.
      */
-    public ReduceClient(final byte[] input) {
-        mInput = input;
+    public ReduceClient(final InputStream input) {
+        mInputStream = input;
     }
 
     /**
@@ -75,9 +75,12 @@ public class ReduceClient {
      */
     public void execute() throws IOException, QueryException {
         mCtx = new Context();
-        IO bxIo = new IOContent(mInput);
-        MemData memData = CreateDB.mainMem(bxIo, mCtx);
-        QueryProcessor proc = new QueryProcessor(new String(mReduceFile), mCtx);
+
+        // Nur well-formed XML contents erlaubt :(
+        SAXSource sax = new SAXSource(new InputSource(mInputStream));
+        Parser p = new SAXWrapper(sax, "testtemp", "", mCtx.prop);
+        MemData memData = CreateDB.mainMem(p, mCtx);
+        QueryProcessor proc = new QueryProcessor(".", mCtx);
         Result result = proc.execute();
         System.out.println("Complete reduce result: " + result);
         memData.close();

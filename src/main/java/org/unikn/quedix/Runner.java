@@ -2,6 +2,7 @@ package org.unikn.quedix;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -155,10 +156,11 @@ public class Runner {
      *             Query exception.
      */
     private void reduce(final String reduceXq) throws QueryException, IOException {
-        String test = "<blubb/>";
-        ReduceClient reducer = new ReduceClient(test.getBytes());
+        InputStream test = this.getClass().getResourceAsStream("/lexus.xml");
+        ReduceClient reducer = new ReduceClient(test);
         reducer.sendReducerTask(new File(reduceXq));
         reducer.execute();
+        test.close();
     }
 
     /**
