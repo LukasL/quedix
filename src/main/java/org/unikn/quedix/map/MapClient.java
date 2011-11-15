@@ -17,135 +17,146 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.basex.util.Token;
 import org.unikn.quedix.core.Client;
 
 /**
- * This class is the client representation for executing/sending map XQuery scripts.
+ * This class is the client representation for executing/sending map XQuery
+ * scripts.
  * 
  * @author Lukas Lewandowski, University of Konstanz.
  */
 public class MapClient {
 
-    /** Client. */
-    private Client mClient;
-    /** XQ file name for mapping. */
-    private String mMappingXq;
-    /** XQ file for mapping. */
-    private File mMappingFile;
+	/** Start tag. */
+	private static final String START = "<results>";
+	/** End tag. */
+	private static final String END = "</results>";
+	/** Client. */
+	private Client mClient;
+	/** XQ file name for mapping. */
+	private String mMappingXq;
+	/** XQ file for mapping. */
+	private File mMappingFile;
 
-    /**
-     * Constructor sets existing {@link Client} instance.
-     * 
-     * @param client
-     *            {@link Client} instance.
-     * @param xq
-     *            XQ file for mapping.
-     */
-    public MapClient(final Client client, final File xq) {
-        mMappingXq = xq.getName();
-        System.out.println("XQ file name: " + mMappingXq);
-        mMappingFile = xq;
-        mClient = client;
-        for (String updateDataServer : mClient.checkMapperDb())
-            mClient.createMapperDb(updateDataServer);
-    }
+	/**
+	 * Constructor sets existing {@link Client} instance.
+	 * 
+	 * @param client
+	 *            {@link Client} instance.
+	 * @param xq
+	 *            XQ file for mapping.
+	 */
+	public MapClient(final Client client, final File xq) {
+		mMappingXq = xq.getName();
+		System.out.println("XQ file name: " + mMappingXq);
+		mMappingFile = xq;
+		mClient = client;
+		for (String updateDataServer : mClient.checkMapperDb())
+			mClient.createMapperDb(updateDataServer);
+	}
 
-    public void distribute() {
-        try {
-            mClient.distributeXq(readByteArray(mMappingFile));
-        } catch (final IOException exce) {
-            exce.printStackTrace();
-        }
-    }
+	public void distribute() {
+		try {
+			mClient.distributeXq(readByteArray(mMappingFile));
+		} catch (final IOException exce) {
+			exce.printStackTrace();
+		}
+	}
 
-    /**
-     * Executes query files in parallel.
-     * 
-     * @param xq
-     *            XQ which has to be executed in parallel.
-     */
-    public void execute() {
-        try {
-            final PipedOutputStream pos = new PipedOutputStream();
-            final PipedInputStream pis = new PipedInputStream(pos);
-            executeReadPipeThread(pis);
-            final DataOutputStream out = new DataOutputStream(new BufferedOutputStream(pos));
-            out.write("<results>".getBytes());
-            mClient.execute(mMappingXq, out);
-            out.write("</results>".getBytes());
-            out.close();
-            pos.close();
-        } catch (final IOException exc) {
-            exc.printStackTrace();
-        }
-    }
+	/**
+	 * Executes query files in parallel.
+	 * 
+	 * @param xq
+	 *            XQ which has to be executed in parallel.
+	 */
+	public void execute() {
+		try {
+			final PipedOutputStream pos = new PipedOutputStream();
+			final PipedInputStream pis = new PipedInputStream(pos);
+			executeReadPipeThread(pis);
+			final DataOutputStream out = new DataOutputStream(
+					new BufferedOutputStream(pos));
+			out.write(Token.token(START));
+			mClient.execute(mMappingXq, out);
+			out.write(Token.token(END));
+			out.close();
+			pos.close();
+		} catch (final IOException exc) {
+			exc.printStackTrace();
+		}
+	}
 
-    /**
-     * Deletes a query file over HTTP DELETE.
-     * 
-     * @param targetResource
-     *            URL address.
-     */
-    public void cleanup() {
-        mClient.delete();
-    }
+	/**
+	 * Deletes a query file over HTTP DELETE.
+	 * 
+	 * @param targetResource
+	 *            URL address.
+	 */
+	public void cleanup() {
+		mClient.delete();
+	}
 
-    /**
-     * Reads input file and writes it to a byte array.
-     * 
-     * @param file
-     *            File name.
-     * @return Byte array representation of file.
-     * @throws IOException
-     *             Exception occurred.
-     */
-    private byte[] readByteArray(final File file) throws IOException {
-        BufferedInputStream input = new BufferedInputStream(new FileInputStream(file));
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        int i;
-        while((i = input.read()) != -1)
-            bos.write(i);
-        input.close();
-        byte[] content = bos.toByteArray();
-        bos.close();
-        return content;
-    }
+	/**
+	 * Reads input file and writes it to a byte array.
+	 * 
+	 * @param file
+	 *            File name.
+	 * @return Byte array representation of file.
+	 * @throws IOException
+	 *             Exception occurred.
+	 */
+	private byte[] readByteArray(final File file) throws IOException {
+		BufferedInputStream input = new BufferedInputStream(
+				new FileInputStream(file));
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		int i;
+		while ((i = input.read()) != -1)
+			bos.write(i);
+		input.close();
+		byte[] content = bos.toByteArray();
+		bos.close();
+		return content;
+	}
 
-    /**
-     * Reads data out of {@link InputStream}.
-     * 
-     * @param is
-     *            {@link InputStream} instance.
-     */
-    private void readData(final InputStream is) {
-        DataInputStream in = new DataInputStream(new BufferedInputStream(is));
-        BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-        String s;
-        try {
-            while((s = reader.readLine()) != null)
-                System.out.println(s);
-            reader.close();
-            in.close();
-        } catch (final IOException exc) {
-            exc.printStackTrace();
-        }
-    }
+	/**
+	 * Reads data out of {@link InputStream}.
+	 * 
+	 * @param is
+	 *            {@link InputStream} instance.
+	 */
+	private void readData(final InputStream is) {
+		DataInputStream in = new DataInputStream(new BufferedInputStream(is));
+		BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+		String s;
+		try {
+			while ((s = reader.readLine()) != null)
+				System.out.println(s);
+			reader.close();
+			in.close();
+		} catch (final IOException exc) {
+			exc.printStackTrace();
+		}
+	}
 
-    /**
-     * Executes a reader thread for receiving items from {@link PipedOutputStream}.
-     * 
-     * @param pis
-     *            {@link PipedInputStream} instance.
-     */
-    private void executeReadPipeThread(final InputStream pis) {
-        ExecutorService es = Executors.newFixedThreadPool(1);
-        Callable<Void> task = new Callable<Void>() {
-            @Override
-            public Void call() throws Exception {
-                readData(pis);
-                return null;
-            }
-        };
-        es.submit(task);
-    }
+	/**
+	 * Executes a reader thread for receiving items from
+	 * {@link PipedOutputStream}.
+	 * 
+	 * @param pis
+	 *            {@link PipedInputStream} instance.
+	 */
+	private void executeReadPipeThread(final InputStream pis) {
+		ExecutorService es = Executors.newFixedThreadPool(1);
+		Callable<Void> task = new Callable<Void>() {
+			@Override
+			public Void call() throws Exception {
+				readData(pis);
+				return null;
+			}
+		};
+		es.submit(task);
+		es.shutdown();
+
+	}
 }
