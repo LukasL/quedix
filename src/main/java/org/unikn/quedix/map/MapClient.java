@@ -1,10 +1,21 @@
 package org.unikn.quedix.map;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.unikn.quedix.core.Client;
 
@@ -54,8 +65,18 @@ public class MapClient {
      *            XQ which has to be executed in parallel.
      */
     public void execute() {
-        for (String res : mClient.execute(mMappingXq)) {
-            System.out.println(res);
+        try {
+            final PipedOutputStream pos = new PipedOutputStream();
+            final PipedInputStream pis = new PipedInputStream(pos);
+            executeReadPipeThread(pis);
+            final DataOutputStream out = new DataOutputStream(new BufferedOutputStream(pos));
+            out.write("<results>".getBytes());
+            mClient.execute(mMappingXq, out);
+            out.write("</results>".getBytes());
+            out.close();
+            pos.close();
+        } catch (final IOException exc) {
+            exc.printStackTrace();
         }
     }
 
@@ -88,6 +109,43 @@ public class MapClient {
         byte[] content = bos.toByteArray();
         bos.close();
         return content;
+    }
 
+    /**
+     * Reads data out of {@link InputStream}.
+     * 
+     * @param is
+     *            {@link InputStream} instance.
+     */
+    private void readData(final InputStream is) {
+        DataInputStream in = new DataInputStream(new BufferedInputStream(is));
+        BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+        String s;
+        try {
+            while((s = reader.readLine()) != null)
+                System.out.println(s);
+            reader.close();
+            in.close();
+        } catch (final IOException exc) {
+            exc.printStackTrace();
+        }
+    }
+
+    /**
+     * Executes a reader thread for receiving items from {@link PipedOutputStream}.
+     * 
+     * @param pis
+     *            {@link PipedInputStream} instance.
+     */
+    private void executeReadPipeThread(final InputStream pis) {
+        ExecutorService es = Executors.newFixedThreadPool(1);
+        Callable<Void> task = new Callable<Void>() {
+            @Override
+            public Void call() throws Exception {
+                readData(pis);
+                return null;
+            }
+        };
+        es.submit(task);
     }
 }

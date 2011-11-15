@@ -76,14 +76,16 @@ public class ReduceClient {
     public void execute() throws IOException, QueryException {
         mCtx = new Context();
 
-        // Nur well-formed XML contents erlaubt :(
+        // Nur well-formed XML contents erlaubt, dh keine Sequenz von Knoten ohne wrapping node :(
         SAXSource sax = new SAXSource(new InputSource(mInputStream));
-        Parser p = new SAXWrapper(sax, "testtemp", "", mCtx.prop);
+        Parser p = new SAXWrapper(sax, mCtx.prop);
         MemData memData = CreateDB.mainMem(p, mCtx);
-        QueryProcessor proc = new QueryProcessor(".", mCtx);
+        mCtx.openDB(memData);
+        QueryProcessor proc = new QueryProcessor(new String(mReduceFile), mCtx);
         Result result = proc.execute();
         System.out.println("Complete reduce result: " + result);
         memData.close();
+        mCtx.close();
         proc.close();
     }
 

@@ -1,5 +1,7 @@
 package org.unikn.quedix.core;
 
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.List;
 
 /**
@@ -24,9 +26,20 @@ public interface Client {
      * 
      * @param xq
      *            XQ file - map oder reduce file.
-     * @return Results of XQ files.
+     * @return Complete results of XQ files.
      */
     public String[] execute(final String xq);
+
+    /**
+     * Executes XQ files on the server and receives results.
+     * 
+     * @param xq
+     *            XQ file - map oder reduce file.
+     * @param output
+     *            Stream for writing results.
+     * @return Complete results of XQ files.
+     */
+    public void execute(final String xq, final OutputStream output);
 
     /**
      * This method delete map.xq or reduce.xq files from the data server.
