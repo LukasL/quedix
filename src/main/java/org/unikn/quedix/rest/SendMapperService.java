@@ -6,17 +6,16 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 
+import static org.unikn.quedix.rest.Constants.CONTENT_TYPE_STRING;
+import static org.unikn.quedix.rest.Constants.PUT;
+import static org.unikn.quedix.rest.Constants.RAW;
+
 /**
  * This class sends mapper XQuery files to the MapperDb.
  * 
  * @author Lukas Lewandowski, University of Konstanz.
  */
 public class SendMapperService {
-
-    /** HTTP PUT string. */
-    private static final String PUT = "PUT";
-    /** Content type string. */
-    private static final String CONTENT_TYPE_STRING = "Content-Type";
 
     /** Connection reference. */
     private HttpURLConnection mConnection;
@@ -46,7 +45,7 @@ public class SendMapperService {
             mConnection = (HttpURLConnection)url.openConnection();
             mConnection.setDoOutput(true);
             mConnection.setRequestMethod(PUT);
-            mConnection.setRequestProperty(CONTENT_TYPE_STRING, "raw");
+            mConnection.setRequestProperty(CONTENT_TYPE_STRING, RAW);
             return mConnection.getOutputStream();
         } catch (MalformedURLException e) {
             e.printStackTrace();

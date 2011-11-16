@@ -9,6 +9,11 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
+import static org.unikn.quedix.rest.Constants.CONTENT_TYPE_STRING;
+import static org.unikn.quedix.rest.Constants.POST;
+import static org.unikn.quedix.rest.Constants.PUT;
+import static org.unikn.quedix.rest.Constants.TEXT_XML;
+
 /**
  * This class is responsible to distribute a collection of XML documents to the
  * data servers via HTTP.
@@ -16,15 +21,6 @@ import java.net.URL;
  * @author Lukas Lewandowski, University of Konstanz.
  */
 public class DistributionService {
-
-    /** HTTP PUT string. */
-    private final String PUT = "PUT";
-    /** HTTP POST string. */
-    private final String POST = "POST";
-    /** Content type string. */
-    private final String CONTENT_TYPE_STRING = "Content-type";
-    /** Content type text/xml. */
-    private final String TEXT_XML = "application/xml";
 
     /** Registered servers to connect to. */
     private String[] mServers;
@@ -83,7 +79,7 @@ public class DistributionService {
             out.close();
             int code = conn.getResponseCode();
             conn.disconnect();
-            return code == 201 ? true : false;
+            return code == 201;
 
         }
         return false;
@@ -118,7 +114,7 @@ public class DistributionService {
                 while(conn.getInputStream().read() != -1)
                     ;
             conn.disconnect();
-            return code == 200 ? true : false;
+            return code == 200;
 
         }
         return false;
@@ -169,7 +165,7 @@ public class DistributionService {
             }
         }
         conn.disconnect();
-        return code == 201 ? true : false;
+        return code == 201;
     }
 
     /**
@@ -206,7 +202,7 @@ public class DistributionService {
             while(conn.getInputStream().read() != -1)
                 ;
         conn.disconnect();
-        return code == 200 ? true : false;
+        return code == 200;
     }
 
     /**

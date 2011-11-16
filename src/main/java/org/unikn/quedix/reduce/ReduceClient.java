@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectStreamException;
 import java.io.OutputStream;
 
 import javax.xml.transform.sax.SAXSource;
@@ -40,7 +39,7 @@ public class ReduceClient {
      * 
      * @param xQueryReducer
      *            reduce XQ file.
-     * @throws IOException 
+     * @throws IOException
      */
     public ReduceClient(final File xQueryReducer) throws IOException {
 
@@ -89,7 +88,6 @@ public class ReduceClient {
         mCtx.openDB(memData);
         QueryProcessor proc = new QueryProcessor(Token.string(mReduceFile), mCtx);
         Result result = proc.execute();
-        System.out.println("Reducer");
         System.out.println("Complete reduce result: " + result);
         memData.close();
         mCtx.close();

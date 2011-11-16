@@ -29,7 +29,13 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 
+import org.basex.util.Token;
 import org.unikn.quedix.core.Client;
+
+import static org.unikn.quedix.rest.Constants.DELETE;
+import static org.unikn.quedix.rest.Constants.PUT;
+import static org.unikn.quedix.rest.Constants.UTF8;
+import static org.unikn.quedix.rest.Constants.XML_TYPE;
 
 /**
  * This class is responsible to execute parallel queries over HTTP.
@@ -50,14 +56,17 @@ public class RestClient implements Client {
     public static final String DOC = "factbook";
     /** Example collection name. */
     public static final String COL = "rest/" + DOC;
-    /** PUT HTTP method string. */
-    private static final String PUT = "PUT";
     /** Package size. */
     private static final int PACKAGE_SIZE = 67108864;
-    /** UTF-8 string. */
-    private static final String UTF8 = "UTF-8";
+    /** Start subcollection root tag name. */
+    private static final String START = "<subcollection>";
+    /** Start subcollection root tag name. */
+    private static final String END = "</subcollection>";
     /** MapperDb name for holding mapping query files. */
-    private final String MAPPER_DB = "rest/MapperDb";
+    private final static String MAPPER_DB = "rest/MapperDb";
+    /** Lock for writing sequential into the {@link OutputStream}. */
+    private static final Semaphore LOCK = new Semaphore(1);
+
     /** Registered data servers. */
     private Map<String, String> mDataServers;
     /** Mappers located at destinations. */
@@ -66,8 +75,6 @@ public class RestClient implements Client {
     private Map<String, Integer> mStates;
     /** Data servers array for distribution. */
     private String[] mDataServersArray;
-    /** Lock for writing sequential into the {@link OutputStream}. */
-    private static final Semaphore LOCK = new Semaphore(1);
 
     /**
      * Default constructor.
@@ -224,7 +231,7 @@ public class RestClient implements Client {
                     try {
                         url = new URL(entry);
                         HttpURLConnection conn = (HttpURLConnection)url.openConnection();
-                        conn.setRequestMethod("DELETE");
+                        conn.setRequestMethod(DELETE);
                         int code = conn.getResponseCode();
                         if (code == HttpURLConnection.HTTP_OK) {
                             BufferedReader br =
@@ -266,7 +273,7 @@ public class RestClient implements Client {
             ;
         for (Future<Boolean> future : booleanResults) {
             try {
-                if (future.get() == false) {
+                if (!future.get()) {
                     isSuccessful = false;
                     break;
                 }
@@ -326,10 +333,10 @@ public class RestClient implements Client {
         Transformer trans = TransformerFactory.newInstance().newTransformer();
         trans.setOutputProperty(OutputKeys.INDENT, "no");
         trans.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-        final byte[] colStart = "<subcollection>".getBytes();
-        final byte[] colEnd = "</subcollection>".getBytes();
+        final byte[] colStart = Token.token(START);
+        final byte[] colEnd = Token.token(END);
         for (File file : files) {
-            if (file.getAbsolutePath().endsWith(".xml")) {
+            if (file.getAbsolutePath().endsWith(XML_TYPE)) {
                 // print progress
                 int div = runner % (filesCount / 10);
                 if (div < 1) {
@@ -447,11 +454,11 @@ public class RestClient implements Client {
             url = new URL(targetResource);
             HttpURLConnection conn = (HttpURLConnection)url.openConnection();
             conn.setDoOutput(true);
-            conn.setRequestMethod("PUT");
+            conn.setRequestMethod(PUT);
 
             OutputStream out = new BufferedOutputStream(conn.getOutputStream());
             InputStream in =
-                new BufferedInputStream(RestClient.class.getResourceAsStream("/" + DOC + ".xml"));
+                new BufferedInputStream(RestClient.class.getResourceAsStream("/" + DOC + XML_TYPE));
             for (int i; (i = in.read()) != -1;)
                 out.write(i);
             in.close();

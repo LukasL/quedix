@@ -2,7 +2,6 @@ package org.unikn.quedix.map;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -10,7 +9,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.util.concurrent.Callable;
@@ -80,6 +78,9 @@ public class MapClient {
             mClient.createMapperDb(updateDataServer);
     }
 
+    /**
+     * Distributes a XQ file.
+     */
     public void distribute() {
         try {
             mClient.distributeXq(readByteArray(mMappingFile));
@@ -161,16 +162,6 @@ public class MapClient {
         } catch (final QueryException exc) {
             exc.printStackTrace();
         }
-        // BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-        // String s;
-        // try {
-        // while((s = reader.readLine()) != null)
-        // System.out.println(s);
-        // reader.close();
-        // in.close();
-        // } catch (final IOException exc) {
-        // exc.printStackTrace();
-        // }
     }
 
     /**
