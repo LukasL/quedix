@@ -47,6 +47,7 @@ public class Runner {
      *             Query exception.
      */
     public static void main(final String[] args) throws IOException, QueryException {
+        long start = System.nanoTime();
 
         if (args.length == 1)
             // Map
@@ -60,6 +61,8 @@ public class Runner {
         else
             // Error message because false user input parameters
             System.err.println("False input parameters.");
+        long end = System.nanoTime() - start;
+        System.out.println("\nComplete execution time: " + end / 1000000 + " ms \n");
 
     }
 
@@ -90,7 +93,6 @@ public class Runner {
      *             XQ file not found.
      */
     public Runner(final String xq, final ClientType type) throws IOException {
-        long start = System.nanoTime();
         if (type == ClientType.REST)
             map(new MapClient(new RestClient(initHttpDataServers()), new File(xq)));
         else {
@@ -98,9 +100,6 @@ public class Runner {
             map(new MapClient(client, new File(xq)));
             client.shutdownClients();
         }
-        long end = System.nanoTime() - start;
-        System.out.println("\nComplete mapper execution time: " + end / 1000000 + " ms \n");
-
     }
 
     /**
@@ -119,17 +118,14 @@ public class Runner {
      */
     public Runner(final String mapXq, final String reduceXq, final ClientType type) throws IOException,
         QueryException {
-        long start = System.nanoTime();
         if (type == ClientType.REST)
-            map(new MapClient(new RestClient(initHttpDataServers()), new File(mapXq)));
+            map(new MapClient(new RestClient(initHttpDataServers()), new File(mapXq), new ReduceClient(
+                new File(reduceXq))));
         else {
             SocketClient client = new SocketClient(initBaseXClients());
-            map(new MapClient(client, new File(mapXq)));
+            map(new MapClient(client, new File(mapXq), new ReduceClient(new File(reduceXq))));
             client.shutdownClients();
         }
-        reduce(reduceXq);
-        long end = System.nanoTime() - start;
-        System.out.println("\nComplete mapper execution time: " + end / 1000000 + " ms \n");
 
     }
 
@@ -143,24 +139,6 @@ public class Runner {
         mapper.distribute();
         mapper.execute();
         mapper.cleanup();
-    }
-
-    /**
-     * Executes reduce xq.
-     * 
-     * @param reduceXq
-     *            Reduce file.
-     * @throws IOException
-     *             Client exception
-     * @throws QueryException
-     *             Query exception.
-     */
-    private void reduce(final String reduceXq) throws QueryException, IOException {
-        InputStream test = this.getClass().getResourceAsStream("/lexus.xml");
-        ReduceClient reducer = new ReduceClient(test);
-        reducer.sendReducerTask(new File(reduceXq));
-        reducer.execute();
-        test.close();
     }
 
     /**

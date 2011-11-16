@@ -6,6 +6,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ObjectStreamException;
+import java.io.OutputStream;
 
 import javax.xml.transform.sax.SAXSource;
 
@@ -28,21 +30,21 @@ import org.basex.util.Token;
  */
 public class ReduceClient {
 
-    /** {@link InputStream} for local execution of reduce process. */
-    private InputStream mInputStream;
     /** Context. */
     private Context mCtx;
     /** reduce process query. */
     private byte[] mReduceFile;
 
     /**
-     * Sets input stream.
+     * Default.
      * 
-     * @param input
-     *            {@link InputStream} stream.
+     * @param xQueryReducer
+     *            reduce XQ file.
+     * @throws IOException 
      */
-    public ReduceClient(final InputStream input) {
-        mInputStream = input;
+    public ReduceClient(final File xQueryReducer) throws IOException {
+
+        mReduceFile = readByteArray(xQueryReducer);
     }
 
     /**
@@ -56,32 +58,38 @@ public class ReduceClient {
      * @throws IOException
      *             XQuery processor exception.
      */
-    public void sendReducerTask(final File xQueryReducer) throws QueryException, IOException {
+    public void sendReducerTask() throws QueryException, IOException {
 
         // local
         mCtx = new Context();
-        mReduceFile = readByteArray(xQueryReducer);
     }
 
     /**
      * Executes reduce query on mapping results.
      * 
+     * @param input
+     *            {@link InputStream} containing map results.
+     * @param output
+     *            {@link OutputStream} for writing results.
+     * 
      * @throws IOException
      *             Error creation of database.
+     * 
      * @throws QueryException
      *             Query exception.
      */
-    public void execute() throws IOException, QueryException {
+    public void execute(final InputStream input, final OutputStream output) throws IOException,
+        QueryException {
         mCtx = new Context();
-
         // Nur well-formed XML contents erlaubt, dh keine Sequenz von Knoten
         // ohne wrapping node :(
-        SAXSource sax = new SAXSource(new InputSource(mInputStream));
+        SAXSource sax = new SAXSource(new InputSource(input));
         Parser p = new SAXWrapper(sax, mCtx.prop);
         MemData memData = CreateDB.mainMem(p, mCtx);
         mCtx.openDB(memData);
         QueryProcessor proc = new QueryProcessor(Token.string(mReduceFile), mCtx);
         Result result = proc.execute();
+        System.out.println("Reducer");
         System.out.println("Complete reduce result: " + result);
         memData.close();
         mCtx.close();

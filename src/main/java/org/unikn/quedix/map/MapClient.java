@@ -17,8 +17,10 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.basex.query.QueryException;
 import org.basex.util.Token;
 import org.unikn.quedix.core.Client;
+import org.unikn.quedix.reduce.ReduceClient;
 
 /**
  * This class is the client representation for executing/sending map XQuery
@@ -38,6 +40,8 @@ public class MapClient {
     private String mMappingXq;
     /** XQ file for mapping. */
     private File mMappingFile;
+    /** Reducer. */
+    private ReduceClient mReducer;
 
     /**
      * Constructor sets existing {@link Client} instance.
@@ -49,6 +53,26 @@ public class MapClient {
      */
     public MapClient(final Client client, final File xq) {
         mMappingXq = xq.getName();
+        System.out.println("XQ file name: " + mMappingXq);
+        mMappingFile = xq;
+        mClient = client;
+        for (String updateDataServer : mClient.checkMapperDb())
+            mClient.createMapperDb(updateDataServer);
+    }
+
+    /**
+     * Constructor sets existing {@link Client} instance.
+     * 
+     * @param client
+     *            {@link Client} instance.
+     * @param xq
+     *            XQ file for mapping.
+     * @param reducer
+     *            Reducer instance.
+     */
+    public MapClient(final Client client, final File xq, final ReduceClient reducer) {
+        mMappingXq = xq.getName();
+        mReducer = reducer;
         System.out.println("XQ file name: " + mMappingXq);
         mMappingFile = xq;
         mClient = client;
@@ -75,6 +99,7 @@ public class MapClient {
             final PipedOutputStream pos = new PipedOutputStream();
             final PipedInputStream pis = new PipedInputStream(pos);
             executeReadPipeThread(pis);
+            mReducer.sendReducerTask();
             final DataOutputStream out = new DataOutputStream(new BufferedOutputStream(pos));
             out.write(Token.token(START));
             mClient.execute(mMappingXq, out);
@@ -82,6 +107,8 @@ public class MapClient {
             out.close();
             pos.close();
         } catch (final IOException exc) {
+            exc.printStackTrace();
+        } catch (final QueryException exc) {
             exc.printStackTrace();
         }
     }
@@ -125,16 +152,25 @@ public class MapClient {
      */
     private void readData(final InputStream is) {
         DataInputStream in = new DataInputStream(new BufferedInputStream(is));
-        BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-        String s;
+
         try {
-            while((s = reader.readLine()) != null)
-                System.out.println(s);
-            reader.close();
+            mReducer.execute(in, null);
             in.close();
         } catch (final IOException exc) {
             exc.printStackTrace();
+        } catch (final QueryException exc) {
+            exc.printStackTrace();
         }
+        // BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+        // String s;
+        // try {
+        // while((s = reader.readLine()) != null)
+        // System.out.println(s);
+        // reader.close();
+        // in.close();
+        // } catch (final IOException exc) {
+        // exc.printStackTrace();
+        // }
     }
 
     /**
