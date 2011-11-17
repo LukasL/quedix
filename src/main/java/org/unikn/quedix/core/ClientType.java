@@ -7,9 +7,9 @@ package org.unikn.quedix.core;
  * 
  */
 public enum ClientType {
-	/** REST clients. */
-	REST,
-	/** SOCKET clients. */
-	SOCKETS
+    /** REST clients. */
+    REST,
+    /** SOCKET clients. */
+    SOCKETS
 
 }
