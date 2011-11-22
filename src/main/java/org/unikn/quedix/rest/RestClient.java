@@ -544,7 +544,6 @@ public class RestClient implements Client {
 
         // name of collection in distributed storage.
         final String collectionName = name;
-        int runner = 0;
         int creator = 0;
         int ind = 0;
         for (File file : files) {
@@ -583,11 +582,13 @@ public class RestClient implements Client {
                     mBos = new BufferedOutputStream(mDistributionService.getOutputStream());
                     mBos.write(COL_START);
                 }
-
+                byte[] startDoc = Token.token("<document path='"+file.getAbsolutePath()+"'/>");
+                mBos.write(startDoc);
                 BufferedInputStream is = new BufferedInputStream(new FileInputStream(file));
                 mTrans.transform(new StreamSource(is), new StreamResult(mBos));
                 is.close();
-                runner++;
+                byte[] endDoc = Token.token("</document>");
+                mBos.write(endDoc);
                 mOutSize = mOutSize + file.length();
                 count++;
             } else if (file.isDirectory()) {
