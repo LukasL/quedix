@@ -25,6 +25,7 @@ import java.util.concurrent.Semaphore;
 
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
@@ -66,6 +67,8 @@ public class RestClient implements Client {
     private final static String MAPPER_DB = "rest/MapperDb";
     /** Lock for writing sequential into the {@link OutputStream}. */
     private static final Semaphore LOCK = new Semaphore(1);
+    private static final byte[] COL_START = Token.token(START);
+    private static final byte[] COL_END = Token.token(END);
 
     /** Registered data servers. */
     private Map<String, String> mDataServers;
@@ -75,6 +78,14 @@ public class RestClient implements Client {
     private Map<String, Integer> mStates;
     /** Data servers array for distribution. */
     private String[] mDataServersArray;
+    /** Written chunks. */
+    private long mOutSize = 0;
+    /** Last user feedback check. */
+    private long mLast = 0;
+    private DistributionService mDistributionService = null;
+    private BufferedOutputStream mBos = null;
+    private Transformer mTrans = null;
+    private int mH = 0;
 
     /**
      * Default constructor.
@@ -317,96 +328,25 @@ public class RestClient implements Client {
         long start = System.nanoTime();
         // input folder containing XML documents to be stored.
         final File inputDir = new File(collection);
-        DistributionService distributionService = null;
-        BufferedOutputStream bos = null;
-        Transformer trans = TransformerFactory.newInstance().newTransformer();
-        trans.setOutputProperty(OutputKeys.INDENT, "no");
-        trans.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+        mTrans = TransformerFactory.newInstance().newTransformer();
+        mTrans.setOutputProperty(OutputKeys.INDENT, "no");
+        mTrans.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
         if (inputDir.isDirectory()) {
-            // name of collection in distributed storage.
-            final String collectionName = name;
-            System.out.println("Start import...");
-            int runner = 0;
-            int creator = 0;
-            File[] files = inputDir.listFiles();
-            int filesCount = files.length;
-            System.out.println("Files to import: " + filesCount);
-            long outSize = 0;
-            int ind = 0;
-            final byte[] colStart = Token.token(START);
-            final byte[] colEnd = Token.token(END);
-            for (File file : files) {
-                if (file.getAbsolutePath().endsWith(XML_TYPE)) {
-                    // print progress
-                    int per = (filesCount / 10);
-                    int div = runner % (per == 0 ? 1 : per);
-                    if (div < 1) {
-                        double progress = (double)runner / filesCount * 100;
-                        System.out.println("Progress: " + progress + " %.");
-                    }
-                    // nur beim start ausgef�hrt;
-                    if (outSize == 0) {
-                        // start subcollection tag
-                        distributionService = new DistributionService(next(mDataServersArray, ind++));
-                        // init
-                        if (creator < mDataServersArray.length) {
-                            distributionService.initUpdate(collectionName);
-                        } else
-                            distributionService.initAdd(collectionName + "/" + file.getName());
-                        bos = new BufferedOutputStream(distributionService.getOutputStream());
-                        bos.write(colStart);
-                    }
-
-                    else if ((outSize + file.length() > PACKAGE_SIZE)) {
-                        // file to big. close first and write new
-                        bos.write(colEnd);
-                        bos.close();
-                        if (creator < mDataServersArray.length) {
-                            if (!distributionService.execUpdate())
-                                isSuccessful = false;
-                            creator++;
-                        } else if (!distributionService.execAdd())
-                            isSuccessful = false;
-                        outSize = 0;
-                        // start subcollection tag
-                        distributionService = new DistributionService(next(mDataServersArray, ind++));
-                        // init
-                        if (creator < mDataServersArray.length) {
-                            distributionService.initUpdate(collectionName);
-                        } else
-                            distributionService.initAdd(collectionName + "/" + file.getName());
-                        bos = new BufferedOutputStream(distributionService.getOutputStream());
-                        bos.write(colStart);
-                    }
-
-                    BufferedInputStream is = new BufferedInputStream(new FileInputStream(file));
-                    trans.transform(new StreamSource(is), new StreamResult(bos));
-                    is.close();
-                    runner++;
-                    outSize = outSize + file.length();
-                }
-            }
-            bos.write(colEnd);
-            bos.close();
-            if (creator < mDataServersArray.length) {
-                isSuccessful = distributionService.execUpdate();
-                creator++;
-            } else
-                isSuccessful = distributionService.execAdd();
-
-            System.out.println(ind + " subcollections distributed.");
+            System.out.println("Start import collection...");
+            long count = traverseDirectory(inputDir, name);
+            System.out.println("\nAmount of imported files: " + count);
         } else if (inputDir.getAbsolutePath().endsWith(XML_TYPE)) {
             System.out.println("Distributing one single XML file");
             // start subcollection tag
-            distributionService = new DistributionService(next(mDataServersArray, 1));
+            mDistributionService = new DistributionService(next(mDataServersArray, 1));
             // init
-            distributionService.initUpdate(name);
-            bos = new BufferedOutputStream(distributionService.getOutputStream());
+            mDistributionService.initUpdate(name);
+            mBos = new BufferedOutputStream(mDistributionService.getOutputStream());
             BufferedInputStream is = new BufferedInputStream(new FileInputStream(inputDir));
-            trans.transform(new StreamSource(is), new StreamResult(bos));
+            mTrans.transform(new StreamSource(is), new StreamResult(mBos));
             is.close();
-            bos.close();
-            isSuccessful = distributionService.execUpdate();
+            mBos.close();
+            isSuccessful = mDistributionService.execUpdate();
         } else
             System.err.println("False input path. Try again.");
         System.out.println("Progress: 100.0 %.");
@@ -581,6 +521,97 @@ public class RestClient implements Client {
      */
     private String next(final String[] server, final int runner) {
         return server[runner % server.length];
+    }
+
+    /**
+     * Traverses an input directory for distribution of collection.
+     * 
+     * @param dir
+     *            Input directory.
+     * @param name
+     *            Name of collection.
+     * @param serverIds
+     *            Server IDs.
+     * @return Distributed files count.
+     * @throws IOException
+     *             Exception occurred.
+     * @throws TransformerException
+     */
+    private long traverseDirectory(final File dir, final String name) throws IOException,
+        TransformerException {
+        File[] files = dir.listFiles();
+        long count = 0;
+
+        // name of collection in distributed storage.
+        final String collectionName = name;
+        int runner = 0;
+        int creator = 0;
+        int ind = 0;
+        for (File file : files) {
+            if (file.getAbsolutePath().endsWith(XML_TYPE)) {
+                // nur beim start ausgef�hrt;
+                if (mOutSize == 0) {
+                    // start subcollection tag
+                    System.out.println("start col");
+                    mDistributionService = new DistributionService(next(mDataServersArray, ind++));
+                    // init
+                    if (creator < mDataServersArray.length) {
+                        mDistributionService.initUpdate(collectionName);
+                    } else
+                        mDistributionService.initAdd(collectionName + "/" + file.getName());
+                    mBos = new BufferedOutputStream(mDistributionService.getOutputStream());
+                    mBos.write(COL_START);
+                }
+
+                else if ((mOutSize + file.length() > PACKAGE_SIZE)) {
+                    // file to big. close first and write new
+                    mBos.write(COL_END);
+                    mBos.close();
+                    if (creator < mDataServersArray.length) {
+                        mDistributionService.execUpdate();
+                        creator++;
+                    } else
+                        mDistributionService.execAdd();
+                    mOutSize = 0;
+                    // start subcollection tag
+                    mDistributionService = new DistributionService(next(mDataServersArray, ind++));
+                    // init
+                    if (creator < mDataServersArray.length) {
+                        mDistributionService.initUpdate(collectionName);
+                    } else
+                        mDistributionService.initAdd(collectionName + "/" + file.getName());
+                    mBos = new BufferedOutputStream(mDistributionService.getOutputStream());
+                    mBos.write(COL_START);
+                }
+
+                BufferedInputStream is = new BufferedInputStream(new FileInputStream(file));
+                mTrans.transform(new StreamSource(is), new StreamResult(mBos));
+                is.close();
+                runner++;
+                mOutSize = mOutSize + file.length();
+                count++;
+            } else if (file.isDirectory()) {
+                mH++;
+                count += traverseDirectory(file, name);
+            }
+        }
+        if (mH < 1) {
+            System.out.println("close col");
+            mBos.write(COL_END);
+            mBos.close();
+            if (creator < mDataServersArray.length) {
+                mDistributionService.execUpdate();
+                creator++;
+            } else
+                mDistributionService.execAdd();
+        }
+        mH--;
+        // user feedback
+        if ((count / 10 > 0) && count != mLast) {
+            System.out.print(".");
+            mLast = count;
+        }
+        return count;
     }
 
 }
