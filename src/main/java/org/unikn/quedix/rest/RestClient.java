@@ -59,10 +59,12 @@ public class RestClient implements Client {
     public static final String COL = "rest/" + DOC;
     /** Package size. */
     private static final int PACKAGE_SIZE = 67108864;
+    /** Start subcollection name. */
+    private static final String SUB_COLLECTION_NAME = "subcollection";
     /** Start subcollection root tag name. */
-    private static final String START = "<subcollection>";
-    /** Start subcollection root tag name. */
-    private static final String END = "</subcollection>";
+    private static final String START = "<" + SUB_COLLECTION_NAME + ">";
+    /** End subcollection root tag name. */
+    private static final String END = "</" + SUB_COLLECTION_NAME + ">";
     /** MapperDb name for holding mapping query files. */
     private final static String MAPPER_DB = "rest/MapperDb";
     /** Lock for writing sequential into the {@link OutputStream}. */
@@ -327,20 +329,24 @@ public class RestClient implements Client {
         boolean isSuccessful = true;
         long start = System.nanoTime();
         // input folder containing XML documents to be stored.
+        String tempName = name + "-temp";
         final File inputDir = new File(collection);
         mTrans = TransformerFactory.newInstance().newTransformer();
         mTrans.setOutputProperty(OutputKeys.INDENT, "no");
         mTrans.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
         if (inputDir.isDirectory()) {
             System.out.println("Start import collection...");
-            long count = traverseDirectory(inputDir, name);
+            long count = traverseDirectory(inputDir, tempName);
             System.out.println("\nAmount of imported files: " + count);
+            mDistributionService.createEmptyCollection(name);
+            mDistributionService.runRefactoring(tempName, name);
+            mDistributionService.deleteTemporaryCollection(tempName);
         } else if (inputDir.getAbsolutePath().endsWith(XML_TYPE)) {
             System.out.println("Distributing one single XML file");
             // start subcollection tag
             mDistributionService = new DistributionService(next(mDataServersArray, 1));
             // init
-            mDistributionService.initUpdate(name);
+            mDistributionService.initUpdate(tempName);
             mBos = new BufferedOutputStream(mDistributionService.getOutputStream());
             BufferedInputStream is = new BufferedInputStream(new FileInputStream(inputDir));
             mTrans.transform(new StreamSource(is), new StreamResult(mBos));
@@ -582,7 +588,7 @@ public class RestClient implements Client {
                     mBos = new BufferedOutputStream(mDistributionService.getOutputStream());
                     mBos.write(COL_START);
                 }
-                byte[] startDoc = Token.token("<document path='"+file.getAbsolutePath()+"'/>");
+                byte[] startDoc = Token.token("<document path='" + file.getAbsolutePath() + "'>");
                 mBos.write(startDoc);
                 BufferedInputStream is = new BufferedInputStream(new FileInputStream(file));
                 mTrans.transform(new StreamSource(is), new StreamResult(mBos));
@@ -597,7 +603,6 @@ public class RestClient implements Client {
             }
         }
         if (mH < 1) {
-            System.out.println("close col");
             mBos.write(COL_END);
             mBos.close();
             if (creator < mDataServersArray.length) {
