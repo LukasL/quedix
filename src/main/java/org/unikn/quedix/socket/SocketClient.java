@@ -17,6 +17,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import org.unikn.quedix.core.Client;
+import org.unikn.quedix.core.DistributionAlgorithm;
 import org.unikn.quedix.socket.BaseXClient.Query;
 
 /**
@@ -301,7 +302,8 @@ public class SocketClient implements Client {
     }
 
     @Override
-    public boolean distributeCollection(final String collection, final String name) throws IOException {
+    public boolean distributeCollection(final String collection, final String name,
+        final DistributionAlgorithm algorithm) throws IOException {
         boolean isSuccessful = true;
         long start = System.nanoTime();
         // input folder containing XML documents to be stored.
@@ -312,7 +314,28 @@ public class SocketClient implements Client {
             serverIds[i++] = entry.getKey();
         if (inputDir.isDirectory()) {
             System.out.println("Start import collection...");
-            long sum = traverseDirectory(inputDir, name, serverIds);
+            long sum = -1;
+            switch (algorithm) {
+            case ROUND_ROBIN_SIMPLE:
+                sum = distributeRoundRobin(inputDir, name, serverIds);
+                break;
+            case ROUND_ROBIN_CHUNK:
+                sum = distributeRoundRobin(inputDir, name, serverIds);
+                break;
+            case ADVANCED:
+                sum = distributeAdvanced(inputDir, name, serverIds);
+                break;
+            case ADVANCED_CHUNK:
+                sum = distributeAdvanced(inputDir, name, serverIds);
+                break;
+            case PARTITIONING:
+                sum = distributePartitioned(inputDir, name, serverIds);
+                break;
+
+            default:
+                System.out.println("Not supported");
+                break;
+            }
             System.out.println("Amount of imported files: " + sum);
         } else if (inputDir.getAbsolutePath().endsWith(XML)) {
             System.out.println("Start import single XML file");
@@ -440,7 +463,7 @@ public class SocketClient implements Client {
      * @throws IOException
      *             Exception occurred.
      */
-    private long traverseDirectory(final File dir, final String name, final String[] serverIds)
+    private long distributeRoundRobin(final File dir, final String name, final String[] serverIds)
         throws IOException {
         File[] files = dir.listFiles();
         long count = 0;
@@ -462,7 +485,7 @@ public class SocketClient implements Client {
                 bis.close();
                 count++;
             } else if (file.isDirectory()) {
-                count += traverseDirectory(file, name, serverIds);
+                count += distributeRoundRobin(file, name, serverIds);
             }
 
             // user feedback
@@ -472,5 +495,41 @@ public class SocketClient implements Client {
             }
         }
         return count;
+    }
+
+    /**
+     * Distributes collection using the advanced algorithm using addition meta information.
+     * 
+     * @param dir
+     *            Input directory.
+     * @param name
+     *            Name of collection.
+     * @param serverIds
+     *            Server IDs.
+     * @return Distributed files count.
+     * @throws IOException
+     *             Exception occurred.
+     */
+    private long distributeAdvanced(final File dir, final String name, final String[] serverIds) {
+        // TODO
+        return 0;
+    }
+
+    /**
+     * Distributes collection using the partitioning algorithm using addition meta information.
+     * 
+     * @param dir
+     *            Input directory.
+     * @param name
+     *            Name of collection.
+     * @param serverIds
+     *            Server IDs.
+     * @return Distributed files count.
+     * @throws IOException
+     *             Exception occurred.
+     */
+    private long distributePartitioned(final File dir, final String name, final String[] serverIds) {
+        // TODO
+        return 0;
     }
 }

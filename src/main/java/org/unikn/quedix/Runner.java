@@ -9,6 +9,7 @@ import org.basex.query.QueryException;
 import org.unikn.quedix.core.Arg;
 import org.unikn.quedix.core.Client;
 import org.unikn.quedix.core.ClientType;
+import org.unikn.quedix.core.DistributionAlgorithm;
 import org.unikn.quedix.core.StartType;
 import org.unikn.quedix.map.MapClient;
 import org.unikn.quedix.reduce.ReduceClient;
@@ -132,7 +133,7 @@ public class Runner {
                 cl = new RestClient(initHttpDataServersMonds());
             else
                 cl = new SocketClient(initBaseXClientsMonds());
-            cl.distributeCollection(xmlDir, name);
+            cl.distributeCollection(xmlDir, name, DistributionAlgorithm.ROUND_ROBIN_CHUNK);
         } catch (final Exception exc) {
             exc.printStackTrace();
         }

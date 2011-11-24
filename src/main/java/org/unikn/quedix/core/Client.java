@@ -69,10 +69,13 @@ public interface Client {
      *            Path of XML directory.
      * @param name
      *            The name of XML collection.
+     * @param algorithm
+     *            Distribution algorithm.
      * @return <code>true</code> if the distribution was successful, <code>false</code> otherwise.
      * @exception Exception
      *                Exception occurred.
      */
-    public boolean distributeCollection(final String collection, final String name) throws Exception;
+    public boolean distributeCollection(final String collection, final String name,
+        final DistributionAlgorithm algorithm) throws Exception;
 
 }

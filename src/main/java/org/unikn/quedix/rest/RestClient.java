@@ -32,6 +32,7 @@ import javax.xml.transform.stream.StreamSource;
 
 import org.basex.util.Token;
 import org.unikn.quedix.core.Client;
+import org.unikn.quedix.core.DistributionAlgorithm;
 
 import static org.unikn.quedix.rest.Constants.DELETE;
 import static org.unikn.quedix.rest.Constants.PUT;
@@ -325,7 +326,8 @@ public class RestClient implements Client {
     }
 
     @Override
-    public boolean distributeCollection(final String collection, final String name) throws Exception {
+    public boolean distributeCollection(final String collection, final String name,
+        final DistributionAlgorithm algorithm) throws Exception {
         boolean isSuccessful = true;
         long start = System.nanoTime();
         // input folder containing XML documents to be stored.
@@ -336,8 +338,28 @@ public class RestClient implements Client {
         mTrans.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
         if (inputDir.isDirectory()) {
             System.out.println("Start import collection...");
-            long count = traverseDirectory(inputDir, tempName);
-            System.out.println("\nAmount of imported files: " + count);
+            long sum = -1;
+            switch (algorithm) {
+            case ROUND_ROBIN_SIMPLE:
+                sum = distributeRoundRobinSimple(inputDir, tempName);
+                break;
+            case ROUND_ROBIN_CHUNK:
+                sum = distributeRoundRobinChunked(inputDir, tempName);
+                break;
+            case ADVANCED:
+                sum = distributeAdvancedSimple(inputDir, name);
+                break;
+            case ADVANCED_CHUNK:
+                sum = distributeAdvancedChunked(inputDir, name);
+                break;
+            case PARTITIONING:
+                sum = distributePartitioned(inputDir, name);
+                break;
+            default:
+                System.out.println("Not supported");
+                break;
+            }
+            System.out.println("\nAmount of imported files: " + sum);
             mDistributionService.createEmptyCollection(name);
             mDistributionService.runRefactoring(tempName, name);
             mDistributionService.deleteTemporaryCollection(tempName);
@@ -543,7 +565,7 @@ public class RestClient implements Client {
      *             Exception occurred.
      * @throws TransformerException
      */
-    private long traverseDirectory(final File dir, final String name) throws IOException,
+    private long distributeRoundRobinChunked(final File dir, final String name) throws IOException,
         TransformerException {
         File[] files = dir.listFiles();
         long count = 0;
@@ -599,7 +621,7 @@ public class RestClient implements Client {
                 count++;
             } else if (file.isDirectory()) {
                 mH++;
-                count += traverseDirectory(file, name);
+                count += distributeRoundRobinChunked(file, name);
             }
         }
         if (mH < 1) {
@@ -618,6 +640,72 @@ public class RestClient implements Client {
             mLast = count;
         }
         return count;
+    }
+
+    /**
+     * Traverses an input directory for distribution of collection via one connection per document.
+     * 
+     * @param dir
+     *            Input directory.
+     * @param name
+     *            Name of collection.
+     * @param serverIds
+     *            Server IDs.
+     * @return Distributed files count.
+     */
+    private long distributeRoundRobinSimple(final File dir, final String name) {
+        // TODO
+        return 0;
+    }
+
+    /**
+     * Traverses an input directory for distribution of collection via Advanced algorithm via one connection
+     * per document.
+     * 
+     * @param dir
+     *            Input directory.
+     * @param name
+     *            Name of collection.
+     * @param serverIds
+     *            Server IDs.
+     * @return Distributed files count.
+     */
+    private long distributeAdvancedSimple(final File dir, final String name) {
+        // TODO
+        return 0;
+    }
+
+    /**
+     * Traverses an input directory for distribution of collection via Advanced algorithm via one connection
+     * per chunk.
+     * 
+     * @param dir
+     *            Input directory.
+     * @param name
+     *            Name of collection.
+     * @param serverIds
+     *            Server IDs.
+     * @return Distributed files count.
+     */
+    private long distributeAdvancedChunked(final File dir, final String name) {
+        // TODO
+        return 0;
+    }
+
+    /**
+     * Traverses an input directory for distribution of collection via Partitioning algorithm.
+     * 
+     * @param dir
+     *            Input directory.
+     * @param name
+     *            Name of collection.
+     * @param serverIds
+     *            Server IDs.
+     * @return Distributed files count.
+     */
+    private long distributePartitioned(final File dir, final String name) {
+        // TODO
+        return 0;
     }
 
 }
