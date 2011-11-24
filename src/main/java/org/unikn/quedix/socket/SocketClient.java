@@ -16,6 +16,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.basex.data.MetaData;
 import org.unikn.quedix.core.Client;
 import org.unikn.quedix.core.DistributionAlgorithm;
 import org.unikn.quedix.socket.BaseXClient.Query;
@@ -67,6 +68,8 @@ public class SocketClient implements Client {
     private BaseXClient mClient = null;
     /** Last user feedback check. */
     private long mLast = 0;
+    /** Meta data. */
+    private org.unikn.quedix.core.MetaData mMeta;
 
     /**
      * Constructor connects clients to BaseX server.
@@ -76,9 +79,10 @@ public class SocketClient implements Client {
      * @throws IOException
      *             Exception occurred.
      */
-    public SocketClient(final Map<String, BaseXClient> clients) throws IOException {
+    public SocketClient(final Map<String, BaseXClient> clients, final org.unikn.quedix.core.MetaData meta) throws IOException {
         this.mClients = clients;
         mMapNames = new HashMap<String, String>();
+        mMeta=meta;
         mDbClientMapping = new HashMap<BaseXClient, List<String>>();
         for (Map.Entry<String, BaseXClient> cls : clients.entrySet()) {
             mMapNames.put(cls.getKey(), "map" + System.nanoTime() + ".xq");
@@ -531,5 +535,20 @@ public class SocketClient implements Client {
     private long distributePartitioned(final File dir, final String name, final String[] serverIds) {
         // TODO
         return 0;
+    }
+
+    /**
+     * Updates meta information from all servers.
+     * 
+     * @throws IOException
+     *             Exception occurred.
+     */
+    private void updateMeta() throws IOException {
+        for (Map.Entry<String, BaseXClient> cls : mClients.entrySet()) {
+            final BaseXClient c = cls.getValue();
+            mMeta.addServer(c.ehost);
+            c.execute(LIST);
+        }
+
     }
 }

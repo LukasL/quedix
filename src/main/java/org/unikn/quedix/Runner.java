@@ -10,6 +10,7 @@ import org.unikn.quedix.core.Arg;
 import org.unikn.quedix.core.Client;
 import org.unikn.quedix.core.ClientType;
 import org.unikn.quedix.core.DistributionAlgorithm;
+import org.unikn.quedix.core.MetaData;
 import org.unikn.quedix.core.StartType;
 import org.unikn.quedix.map.MapClient;
 import org.unikn.quedix.reduce.ReduceClient;
@@ -132,7 +133,7 @@ public class Runner {
             if (type == ClientType.REST)
                 cl = new RestClient(initHttpDataServersMonds());
             else
-                cl = new SocketClient(initBaseXClientsMonds());
+                cl = new SocketClient(initBaseXClientsMonds(), new MetaData());
             cl.distributeCollection(xmlDir, name, DistributionAlgorithm.ROUND_ROBIN_CHUNK);
         } catch (final Exception exc) {
             exc.printStackTrace();
@@ -153,7 +154,7 @@ public class Runner {
         if (type == ClientType.REST)
             map(new MapClient(new RestClient(initHttpDataServersMonds()), new File(xq)));
         else {
-            SocketClient client = new SocketClient(initBaseXClientsMonds());
+            SocketClient client = new SocketClient(initBaseXClientsMonds(), new MetaData());
             map(new MapClient(client, new File(xq)));
             client.shutdownClients();
         }
@@ -179,7 +180,7 @@ public class Runner {
             map(new MapClient(new RestClient(initHttpDataServersMonds()), new File(mapXq), new ReduceClient(
                 new File(reduceXq))));
         else {
-            SocketClient client = new SocketClient(initBaseXClientsMonds());
+            SocketClient client = new SocketClient(initBaseXClientsMonds(), new MetaData());
             map(new MapClient(client, new File(mapXq), new ReduceClient(new File(reduceXq))));
             client.shutdownClients();
         }
