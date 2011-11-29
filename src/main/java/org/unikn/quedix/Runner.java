@@ -131,10 +131,10 @@ public class Runner {
         try {
             Client cl;
             if (type == ClientType.REST)
-                cl = new RestClient(initHttpDataServersMonds());
+                cl = new RestClient(initHttpDataServersMonds(), new MetaData());
             else
                 cl = new SocketClient(initBaseXClientsMonds(), new MetaData());
-            cl.distributeCollection(xmlDir, name, DistributionAlgorithm.ROUND_ROBIN_CHUNK);
+            cl.distributeCollection(xmlDir, name, DistributionAlgorithm.ROUND_ROBIN_SIMPLE);
         } catch (final Exception exc) {
             exc.printStackTrace();
         }
@@ -152,7 +152,7 @@ public class Runner {
      */
     public void executeMap(final String xq, final ClientType type) throws IOException {
         if (type == ClientType.REST)
-            map(new MapClient(new RestClient(initHttpDataServersMonds()), new File(xq)));
+            map(new MapClient(new RestClient(initHttpDataServersMonds(), new MetaData()), new File(xq)));
         else {
             SocketClient client = new SocketClient(initBaseXClientsMonds(), new MetaData());
             map(new MapClient(client, new File(xq)));
@@ -177,8 +177,8 @@ public class Runner {
     public void executeMapReduce(final String mapXq, final String reduceXq, final ClientType type)
         throws IOException, QueryException {
         if (type == ClientType.REST)
-            map(new MapClient(new RestClient(initHttpDataServersMonds()), new File(mapXq), new ReduceClient(
-                new File(reduceXq))));
+            map(new MapClient(new RestClient(initHttpDataServersMonds(), new MetaData()), new File(mapXq),
+                new ReduceClient(new File(reduceXq))));
         else {
             SocketClient client = new SocketClient(initBaseXClientsMonds(), new MetaData());
             map(new MapClient(client, new File(mapXq), new ReduceClient(new File(reduceXq))));
@@ -222,7 +222,7 @@ public class Runner {
      */
     public Map<String, String> initHttpDataServersMonds() {
         Map<String, String> dataServers = new HashMap<String, String>();
-        dataServers.put(HTTP + MOND_1 + COLON + MOND_HTTP_PORT + SLASH, REST_COL);
+        // dataServers.put(HTTP + MOND_1 + COLON + MOND_HTTP_PORT + SLASH, REST_COL);
         dataServers.put(HTTP + MOND_2 + COLON + MOND_HTTP_PORT + SLASH, REST_COL);
         dataServers.put(HTTP + MOND_3 + COLON + MOND_HTTP_PORT + SLASH, REST_COL);
         dataServers.put(HTTP + MOND_4 + COLON + MOND_HTTP_PORT + SLASH, REST_COL);
@@ -239,7 +239,7 @@ public class Runner {
      */
     public Map<String, BaseXClient> initBaseXClientsMonds() throws IOException {
         Map<String, BaseXClient> clients = new HashMap<String, BaseXClient>();
-        clients.put("mond01", new BaseXClient(MOND_1, MOND_SOCKET_PORT, USER, PW));
+        // clients.put("mond01", new BaseXClient(MOND_1, MOND_SOCKET_PORT, USER, PW));
         clients.put("mond02", new BaseXClient(MOND_2, MOND_SOCKET_PORT, USER, PW));
         clients.put("mond03", new BaseXClient(MOND_3, MOND_SOCKET_PORT, USER, PW));
         clients.put("mond04", new BaseXClient(MOND_4, MOND_SOCKET_PORT, USER, PW));

@@ -90,4 +90,15 @@ public class MetaData {
         mServerStorageSize.put(server, size);
     }
 
+    /**
+     * Checks if server exists.
+     * 
+     * @param server
+     *            Name of the server.
+     * @return <code>true</code> if yes, <code>false</code> if not.
+     */
+    public boolean containsServer(final String server) {
+        return mServerDbMapping.containsKey(server);
+    }
+
 }

@@ -175,17 +175,19 @@ public class DistributionService {
      * This method is responsible to prepare a POST request to add documents to
      * an existing collection.
      * 
+     * @param collection
+     *            Collection name.
      * @param name
      *            The name of the collection.
      * @throws IOException
      *             Exception occurred.
      */
-    public void initAdd(final String name) throws IOException {
-        URL url = new URL(mServers[0] + "/" + name);
+    public void initAdd(final String collection, final String name) throws IOException {
+        URL url = new URL(mServers[0] + "/" + collection + "/" + name);
         HttpURLConnection conn = (HttpURLConnection)url.openConnection();
         conn.setDoOutput(true);
+        conn.setRequestMethod(PUT);
         conn.setRequestProperty(CONTENT_TYPE_STRING, TEXT_XML);
-        conn.setRequestMethod(POST);
         OutputStream out = new BufferedOutputStream(conn.getOutputStream());
         output = out;
         this.conn = conn;
@@ -201,11 +203,18 @@ public class DistributionService {
     public boolean execAdd() throws IOException {
         output.close();
         int code = conn.getResponseCode();
-        if (code == 200)
+        if (code == 201)
             while(conn.getInputStream().read() != -1)
                 ;
+        else {
+            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
+            String l;
+            while((l = br.readLine()) != null) {
+                System.out.println(l);
+            }
+        }
         conn.disconnect();
-        return code == 200;
+        return code == 201;
     }
 
     /**

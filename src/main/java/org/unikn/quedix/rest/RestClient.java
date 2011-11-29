@@ -33,6 +33,7 @@ import javax.xml.transform.stream.StreamSource;
 import org.basex.util.Token;
 import org.unikn.quedix.core.Client;
 import org.unikn.quedix.core.DistributionAlgorithm;
+import org.unikn.quedix.core.MetaData;
 
 import static org.unikn.quedix.rest.Constants.DELETE;
 import static org.unikn.quedix.rest.Constants.PUT;
@@ -85,15 +86,23 @@ public class RestClient implements Client {
     private long mOutSize = 0;
     /** Last user feedback check. */
     private long mLast = 0;
+    /** Distribution service. */
     private DistributionService mDistributionService = null;
+    /** Output stream. */
     private BufferedOutputStream mBos = null;
+    /** Transformer. */
     private Transformer mTrans = null;
+    /** Height of method. */
     private int mH = 0;
+    /** Runner object for iterating in round robin. */
+    private int runner = 0;
+    /** Meta data. */
+    private MetaData mMeta;
 
     /**
      * Default constructor.
      */
-    public RestClient(final Map<String, String> dataServers) {
+    public RestClient(final Map<String, String> dataServers, final org.unikn.quedix.core.MetaData meta) {
         mDataServers = dataServers;
         mDataServersArray = new String[mDataServers.size()];
         int i = 0;
@@ -102,6 +111,7 @@ public class RestClient implements Client {
 
         mDestinationMappers = new ArrayList<String>();
         mStates = new ConcurrentHashMap<String, Integer>();
+        mMeta = meta;
     }
 
     /**
@@ -339,30 +349,37 @@ public class RestClient implements Client {
         if (inputDir.isDirectory()) {
             System.out.println("Start import collection...");
             long sum = -1;
+            runner = 0;
             switch (algorithm) {
             case ROUND_ROBIN_SIMPLE:
-                sum = distributeRoundRobinSimple(inputDir, tempName);
+                sum = distributeRoundRobinSimple(inputDir, name);
                 break;
             case ROUND_ROBIN_CHUNK:
                 sum = distributeRoundRobinChunked(inputDir, tempName);
+                mDistributionService.createEmptyCollection(name);
+                mDistributionService.runRefactoring(tempName, name);
+                mDistributionService.deleteTemporaryCollection(tempName);
                 break;
             case ADVANCED:
                 sum = distributeAdvancedSimple(inputDir, name);
                 break;
             case ADVANCED_CHUNK:
                 sum = distributeAdvancedChunked(inputDir, name);
+                mDistributionService.createEmptyCollection(name);
+                mDistributionService.runRefactoring(tempName, name);
+                mDistributionService.deleteTemporaryCollection(tempName);
                 break;
             case PARTITIONING:
                 sum = distributePartitioned(inputDir, name);
+                mDistributionService.createEmptyCollection(name);
+                mDistributionService.runRefactoring(tempName, name);
+                mDistributionService.deleteTemporaryCollection(tempName);
                 break;
             default:
                 System.out.println("Not supported");
                 break;
             }
             System.out.println("\nAmount of imported files: " + sum);
-            mDistributionService.createEmptyCollection(name);
-            mDistributionService.runRefactoring(tempName, name);
-            mDistributionService.deleteTemporaryCollection(tempName);
         } else if (inputDir.getAbsolutePath().endsWith(XML_TYPE)) {
             System.out.println("Distributing one single XML file");
             // start subcollection tag
@@ -538,20 +555,6 @@ public class RestClient implements Client {
     }
 
     /**
-     * This method return the next host in a round robin manner to support
-     * uniform distribution.
-     * 
-     * @param server
-     *            servers.
-     * @param loop
-     *            runner.
-     * @return next host name.
-     */
-    private String next(final String[] server, final int runner) {
-        return server[runner % server.length];
-    }
-
-    /**
      * Traverses an input directory for distribution of collection.
      * 
      * @param dir
@@ -573,19 +576,18 @@ public class RestClient implements Client {
         // name of collection in distributed storage.
         final String collectionName = name;
         int creator = 0;
-        int ind = 0;
         for (File file : files) {
             if (file.getAbsolutePath().endsWith(XML_TYPE)) {
                 // nur beim start ausgef�hrt;
                 if (mOutSize == 0) {
                     // start subcollection tag
                     System.out.println("start col");
-                    mDistributionService = new DistributionService(next(mDataServersArray, ind++));
+                    mDistributionService = new DistributionService(next(mDataServersArray, runner++));
                     // init
                     if (creator < mDataServersArray.length) {
-                        mDistributionService.initUpdate(collectionName);
-                    } else
-                        mDistributionService.initAdd(collectionName + "/" + file.getName());
+                        mDistributionService.createEmptyCollection(collectionName);
+                    }
+                    mDistributionService.initAdd(collectionName, file.getName());
                     mBos = new BufferedOutputStream(mDistributionService.getOutputStream());
                     mBos.write(COL_START);
                 }
@@ -595,18 +597,17 @@ public class RestClient implements Client {
                     mBos.write(COL_END);
                     mBos.close();
                     if (creator < mDataServersArray.length) {
-                        mDistributionService.execUpdate();
                         creator++;
-                    } else
-                        mDistributionService.execAdd();
+                    }
+                    mDistributionService.execAdd();
                     mOutSize = 0;
                     // start subcollection tag
-                    mDistributionService = new DistributionService(next(mDataServersArray, ind++));
+                    mDistributionService = new DistributionService(next(mDataServersArray, runner));
                     // init
                     if (creator < mDataServersArray.length) {
-                        mDistributionService.initUpdate(collectionName);
-                    } else
-                        mDistributionService.initAdd(collectionName + "/" + file.getName());
+                        mDistributionService.createEmptyCollection(collectionName);
+                    }
+                    mDistributionService.initAdd(collectionName, file.getName());
                     mBos = new BufferedOutputStream(mDistributionService.getOutputStream());
                     mBos.write(COL_START);
                 }
@@ -628,10 +629,9 @@ public class RestClient implements Client {
             mBos.write(COL_END);
             mBos.close();
             if (creator < mDataServersArray.length) {
-                mDistributionService.execUpdate();
                 creator++;
-            } else
-                mDistributionService.execAdd();
+            }
+            mDistributionService.execAdd();
         }
         mH--;
         // user feedback
@@ -652,10 +652,43 @@ public class RestClient implements Client {
      * @param serverIds
      *            Server IDs.
      * @return Distributed files count.
+     * @throws IOException
+     * @throws TransformerException
      */
-    private long distributeRoundRobinSimple(final File dir, final String name) {
-        // TODO
-        return 0;
+    private long distributeRoundRobinSimple(final File dir, final String name) throws IOException {
+        File[] files = dir.listFiles();
+        long count = 0;
+
+        // name of collection in distributed storage.
+        for (File file : files) {
+            if (file.getAbsolutePath().endsWith(XML_TYPE)) {
+                String host = next(mDataServersArray, runner++);
+                mDistributionService = new DistributionService(host);
+                if (!mMeta.containsServer(host) || !existDbOnServer(mMeta.getDbList(host), name)) {
+                    mMeta.addDb(host, name);
+                    mDistributionService.createEmptyCollection(name);
+                }
+                mDistributionService.initAdd(name, file.getAbsolutePath());
+                BufferedOutputStream bos = (BufferedOutputStream)mDistributionService.getOutputStream();
+                BufferedInputStream is = new BufferedInputStream(new FileInputStream(file));
+                int i;
+                while((i = is.read()) != -1) {
+                    bos.write(i);
+                }
+                is.close();
+                mDistributionService.execAdd();
+                count++;
+
+            } else if (file.isDirectory()) {
+                count += distributeRoundRobinSimple(file, name);
+            }
+        }
+        // user feedback
+        if ((count / 20 > 0) && count != mLast) {
+            System.out.print(".");
+            mLast = count;
+        }
+        return count;
     }
 
     /**
@@ -706,6 +739,40 @@ public class RestClient implements Client {
     private long distributePartitioned(final File dir, final String name) {
         // TODO
         return 0;
+    }
+
+    /**
+     * Checks if the searched database exists already.
+     * 
+     * @param dbs
+     *            Available databases.
+     * @param name
+     *            Name of the searched database.
+     * @return <code>true</code> if the database exists, <code>false</code> otherwise.
+     */
+    private boolean existDbOnServer(final List<String> dbs, final String name) {
+        boolean result = false;
+        for (String db : dbs) {
+            if (db.equals(name)) {
+                result = true;
+                break;
+            }
+        }
+        return result;
+    }
+
+    /**
+     * This method return the next host in a round robin manner to support
+     * uniform distribution.
+     * 
+     * @param server
+     *            servers.
+     * @param loop
+     *            runner.
+     * @return next host name.
+     */
+    private String next(final String[] server, final int runner) {
+        return server[runner % server.length];
     }
 
 }
