@@ -16,6 +16,8 @@ public class MetaData {
     private Map<String, List<String>> mServerDbMapping;
     /** Server storage occupied size. */
     private Map<String, Long> mServerStorageSize;
+    /** Data server meta information. */
+    private ServerMeta mServerMeta;
 
     /**
      * Creates new maps.
@@ -23,6 +25,9 @@ public class MetaData {
     public MetaData() {
         mServerDbMapping = new HashMap<String, List<String>>();
         mServerStorageSize = new HashMap<String, Long>();
+        mServerMeta = new ServerMeta();
+//        mServerMeta.setRam(8053063680L);
+        mServerMeta.setRam(500L);
     }
 
     /**
@@ -99,6 +104,25 @@ public class MetaData {
      */
     public boolean containsServer(final String server) {
         return mServerDbMapping.containsKey(server);
+    }
+
+    /**
+     * Setter.
+     * 
+     * @param serverMeta
+     *            The serverMeta to set.
+     */
+    public void setServerMeta(final ServerMeta serverMeta) {
+        this.mServerMeta = serverMeta;
+    }
+
+    /**
+     * Getter.
+     * 
+     * @return Returns the serverMeta.
+     */
+    public ServerMeta getServerMeta() {
+        return mServerMeta;
     }
 
 }

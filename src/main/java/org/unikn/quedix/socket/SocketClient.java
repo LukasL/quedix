@@ -70,6 +70,8 @@ public class SocketClient implements Client {
     private long mLast = 0;
     /** Meta data. */
     private org.unikn.quedix.core.MetaData mMeta;
+    /** Amount of parts for the partitioned distribution algorithm. */
+    private long mPartitionedPackage = 0;
 
     /**
      * Constructor connects clients to BaseX server.
@@ -79,10 +81,11 @@ public class SocketClient implements Client {
      * @throws IOException
      *             Exception occurred.
      */
-    public SocketClient(final Map<String, BaseXClient> clients, final org.unikn.quedix.core.MetaData meta) throws IOException {
+    public SocketClient(final Map<String, BaseXClient> clients, final org.unikn.quedix.core.MetaData meta)
+        throws IOException {
         this.mClients = clients;
         mMapNames = new HashMap<String, String>();
-        mMeta=meta;
+        mMeta = meta;
         mDbClientMapping = new HashMap<BaseXClient, List<String>>();
         for (Map.Entry<String, BaseXClient> cls : clients.entrySet()) {
             mMapNames.put(cls.getKey(), "map" + System.nanoTime() + ".xq");
@@ -321,18 +324,33 @@ public class SocketClient implements Client {
             long sum = -1;
             switch (algorithm) {
             case ROUND_ROBIN_SIMPLE:
+                System.out.println("Execute round robin simple");
                 sum = distributeRoundRobin(inputDir, name, serverIds);
                 break;
             case ROUND_ROBIN_CHUNK:
+                System.out.println("Execute round robin simple");
                 sum = distributeRoundRobin(inputDir, name, serverIds);
                 break;
             case ADVANCED:
+                System.out.println("Execute round robin advanced");
                 sum = distributeAdvanced(inputDir, name, serverIds);
                 break;
             case ADVANCED_CHUNK:
+                System.out.println("Execute round robin advanced");
                 sum = distributeAdvanced(inputDir, name, serverIds);
                 break;
             case PARTITIONING:
+                System.out.println("Execute partitioned");
+                long completeSize = folderSize(inputDir);
+                long amountPackages;
+                double a = completeSize / mMeta.getServerMeta().getRam();
+                if ((completeSize % mMeta.getServerMeta().getRam()) == 0)
+                    amountPackages = (long)a;
+                else
+                    amountPackages = (long)a + 1;
+                mPartitionedPackage = (long)(completeSize / amountPackages);
+                System.out.println("Directory size: " + completeSize);
+
                 sum = distributePartitioned(inputDir, name, serverIds);
                 break;
 
@@ -423,7 +441,14 @@ public class SocketClient implements Client {
      * @return <code>true</code> if collection exists, <code>false</code> otherwise.
      */
     private boolean checkCollectionExistence(final BaseXClient client, final String collectionName) {
-        return mDbClientMapping.get(client).contains(collectionName);
+        if (mMeta.containsServer(client.ehost)) {
+            List<String> dbs = mMeta.getDbList(client.ehost);
+            for (String db : dbs) {
+                if (db.equals(collectionName))
+                    return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -448,9 +473,7 @@ public class SocketClient implements Client {
         } else {
             client.createCol(name);
             client.add(file.getAbsolutePath(), bis);
-            List<String> l = mDbClientMapping.get(client);
-            if (!l.contains(name))
-                l.add(name);
+            mMeta.addDb(client.ehost, name);
         }
     }
 
@@ -474,18 +497,8 @@ public class SocketClient implements Client {
         for (File file : files) {
             if (file.isFile() && file.getAbsolutePath().endsWith(XML)) {
                 BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
-                // nur beim start ausgefuehrt;
-                if (mOutSize == 0) {
-                    mClient = next(serverIds, mInd++);
-                    distributeXml(mClient, name, bis, file);
-                } else if ((mOutSize + file.length()) > PACKAGE_SIZE) {
-                    mOutSize = 0;
-                    mClient = next(serverIds, mInd++);
-                    distributeXml(mClient, name, bis, file);
-                } else {
-                    distributeXml(mClient, name, bis, file);
-                }
-                mOutSize += file.length();
+                mClient = next(serverIds, mInd++);
+                distributeXml(mClient, name, bis, file);
                 bis.close();
                 count++;
             } else if (file.isDirectory()) {
@@ -514,9 +527,38 @@ public class SocketClient implements Client {
      * @throws IOException
      *             Exception occurred.
      */
-    private long distributeAdvanced(final File dir, final String name, final String[] serverIds) {
-        // TODO
-        return 0;
+    private long distributeAdvanced(final File dir, final String name, final String[] serverIds)
+        throws IOException {
+        File[] files = dir.listFiles();
+        long count = 0;
+        for (File file : files) {
+            if (file.isFile() && file.getAbsolutePath().endsWith(XML)) {
+                BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+                // nur beim start ausgefuehrt;
+                if (mOutSize == 0) {
+                    mClient = next(serverIds, mInd++);
+                    distributeXml(mClient, name, bis, file);
+                } else if ((mOutSize + file.length()) > mMeta.getServerMeta().getRam()) {
+                    mOutSize = 0;
+                    mClient = next(serverIds, mInd++);
+                    distributeXml(mClient, name, bis, file);
+                } else {
+                    distributeXml(mClient, name, bis, file);
+                }
+                mOutSize += file.length();
+                bis.close();
+                count++;
+            } else if (file.isDirectory()) {
+                count += distributeAdvanced(file, name, serverIds);
+            }
+
+            // user feedback
+            if ((count % 10 == 0) && count != mLast) {
+                System.out.print(".");
+                mLast = count;
+            }
+        }
+        return count;
     }
 
     /**
@@ -532,9 +574,38 @@ public class SocketClient implements Client {
      * @throws IOException
      *             Exception occurred.
      */
-    private long distributePartitioned(final File dir, final String name, final String[] serverIds) {
-        // TODO
-        return 0;
+    private long distributePartitioned(final File dir, final String name, final String[] serverIds)
+        throws IOException {
+        File[] files = dir.listFiles();
+        long count = 0;
+        for (File file : files) {
+            if (file.isFile() && file.getAbsolutePath().endsWith(XML)) {
+                BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+                // nur beim start ausgefuehrt;
+                if (mOutSize == 0) {
+                    mClient = next(serverIds, mInd++);
+                    distributeXml(mClient, name, bis, file);
+                } else if ((mOutSize + file.length()) > mPartitionedPackage) {
+                    mOutSize = 0;
+                    mClient = next(serverIds, mInd++);
+                    distributeXml(mClient, name, bis, file);
+                } else {
+                    distributeXml(mClient, name, bis, file);
+                }
+                mOutSize += file.length();
+                bis.close();
+                count++;
+            } else if (file.isDirectory()) {
+                count += distributeAdvanced(file, name, serverIds);
+            }
+
+            // user feedback
+            if ((count % 10 == 0) && count != mLast) {
+                System.out.print(".");
+                mLast = count;
+            }
+        }
+        return count;
     }
 
     /**
@@ -549,6 +620,25 @@ public class SocketClient implements Client {
             mMeta.addServer(c.ehost);
             c.execute(LIST);
         }
-
     }
+
+    /**
+     * Emit the size of a folder.
+     * 
+     * @param directory
+     *            Input collection directory.
+     * @return directory size in bytes.
+     */
+    private long folderSize(final File directory) {
+        // check auf XML
+        long length = 0;
+        for (File file : directory.listFiles()) {
+            if (file.isFile() && file.getAbsolutePath().endsWith(XML))
+                length += file.length();
+            else
+                length += folderSize(file);
+        }
+        return length;
+    }
+
 }

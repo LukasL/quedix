@@ -134,7 +134,7 @@ public class Runner {
                 cl = new RestClient(initHttpDataServersMonds(), new MetaData());
             else
                 cl = new SocketClient(initBaseXClientsMonds(), new MetaData());
-            cl.distributeCollection(xmlDir, name, DistributionAlgorithm.ROUND_ROBIN_SIMPLE);
+            cl.distributeCollection(xmlDir, name, DistributionAlgorithm.PARTITIONING);
         } catch (final Exception exc) {
             exc.printStackTrace();
         }

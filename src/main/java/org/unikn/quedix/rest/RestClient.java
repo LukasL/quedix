@@ -98,6 +98,12 @@ public class RestClient implements Client {
     private int runner = 0;
     /** Meta data. */
     private MetaData mMeta;
+    /** Host for calling server. */
+    private String mHost = null;
+    /** Dynamic package size. */
+    private long mPackageSize = 0;
+    /** Refactoring servers. */
+    private List<String> mRefactoringServers = new ArrayList<String>();
 
     /**
      * Default constructor.
@@ -112,6 +118,7 @@ public class RestClient implements Client {
         mDestinationMappers = new ArrayList<String>();
         mStates = new ConcurrentHashMap<String, Integer>();
         mMeta = meta;
+        mPackageSize = mMeta.getServerMeta().getRam();
     }
 
     /**
@@ -338,6 +345,7 @@ public class RestClient implements Client {
     @Override
     public boolean distributeCollection(final String collection, final String name,
         final DistributionAlgorithm algorithm) throws Exception {
+        mRefactoringServers.clear();
         boolean isSuccessful = true;
         long start = System.nanoTime();
         // input folder containing XML documents to be stored.
@@ -352,28 +360,53 @@ public class RestClient implements Client {
             runner = 0;
             switch (algorithm) {
             case ROUND_ROBIN_SIMPLE:
+                System.out.println("Execute round robin simple");
                 sum = distributeRoundRobinSimple(inputDir, name);
                 break;
             case ROUND_ROBIN_CHUNK:
+                System.out.println("Execute round robin chunk");
                 sum = distributeRoundRobinChunked(inputDir, tempName);
                 mDistributionService.createEmptyCollection(name);
                 mDistributionService.runRefactoring(tempName, name);
                 mDistributionService.deleteTemporaryCollection(tempName);
                 break;
             case ADVANCED:
+                System.out.println("Execute advanced");
                 sum = distributeAdvancedSimple(inputDir, name);
                 break;
             case ADVANCED_CHUNK:
-                sum = distributeAdvancedChunked(inputDir, name);
-                mDistributionService.createEmptyCollection(name);
-                mDistributionService.runRefactoring(tempName, name);
-                mDistributionService.deleteTemporaryCollection(tempName);
+                System.out.println("Execute advanced chunk");
+                sum = distributeAdvancedChunked(inputDir, tempName);
+                for (String server : mRefactoringServers) {
+                    mDistributionService = new DistributionService(server);
+                    mDistributionService.createEmptyCollection(name);
+                    mDistributionService.runRefactoring(tempName, name);
+                    mDistributionService.deleteTemporaryCollection(tempName);
+                }
                 break;
             case PARTITIONING:
-                sum = distributePartitioned(inputDir, name);
-                mDistributionService.createEmptyCollection(name);
-                mDistributionService.runRefactoring(tempName, name);
-                mDistributionService.deleteTemporaryCollection(tempName);
+                System.out.println("Execute partitioned");
+
+                long completeSize = folderSize(inputDir);
+                System.out.println("Ram size: "+mMeta.getServerMeta().getRam());
+                long amountPackages;
+                double a = completeSize / mMeta.getServerMeta().getRam();
+                if ((completeSize % mMeta.getServerMeta().getRam()) == 0)
+                    amountPackages = (long)a;
+                else
+                    amountPackages = (long)a + 1;
+                System.out.println("Packages: "+amountPackages);
+                mPackageSize = (long)(completeSize / amountPackages);
+                System.out.println("Package size: "+mPackageSize);
+                System.out.println("Directory size: " + completeSize);
+
+                sum = distributePartitioned(inputDir, tempName);
+                for (String server : mRefactoringServers) {
+                    mDistributionService = new DistributionService(server);
+                    mDistributionService.createEmptyCollection(name);
+                    mDistributionService.runRefactoring(tempName, name);
+                    mDistributionService.deleteTemporaryCollection(tempName);
+                }
                 break;
             default:
                 System.out.println("Not supported");
@@ -582,7 +615,9 @@ public class RestClient implements Client {
                 if (mOutSize == 0) {
                     // start subcollection tag
                     System.out.println("start col");
-                    mDistributionService = new DistributionService(next(mDataServersArray, runner++));
+                    String host = next(mDataServersArray, runner++);
+                    mRefactoringServers.add(host);
+                    mDistributionService = new DistributionService(host);
                     // init
                     if (creator < mDataServersArray.length) {
                         mDistributionService.createEmptyCollection(collectionName);
@@ -602,7 +637,9 @@ public class RestClient implements Client {
                     mDistributionService.execAdd();
                     mOutSize = 0;
                     // start subcollection tag
-                    mDistributionService = new DistributionService(next(mDataServersArray, runner));
+                    String host = next(mDataServersArray, runner);
+                    mRefactoringServers.add(host);
+                    mDistributionService = new DistributionService(host);
                     // init
                     if (creator < mDataServersArray.length) {
                         mDistributionService.createEmptyCollection(collectionName);
@@ -702,10 +739,50 @@ public class RestClient implements Client {
      * @param serverIds
      *            Server IDs.
      * @return Distributed files count.
+     * @throws IOException
      */
-    private long distributeAdvancedSimple(final File dir, final String name) {
-        // TODO
-        return 0;
+    private long distributeAdvancedSimple(final File dir, final String name) throws IOException {
+        File[] files = dir.listFiles();
+        long count = 0;
+
+        // name of collection in distributed storage.
+        for (File file : files) {
+            if (file.getAbsolutePath().endsWith(XML_TYPE)) {
+                if (mOutSize == 0) {
+                    mHost = next(mDataServersArray, runner++);
+                    mDistributionService = new DistributionService(mHost);
+                } else if (mOutSize + file.length() > mMeta.getServerMeta().getRam()) {
+                    mHost = next(mDataServersArray, runner++);
+                    mDistributionService = new DistributionService(mHost);
+                    mOutSize = 0;
+                }
+                if (!mMeta.containsServer(mHost) || !existDbOnServer(mMeta.getDbList(mHost), name)) {
+                    System.out.println(mHost);
+                    mMeta.addDb(mHost, name);
+                    mDistributionService.createEmptyCollection(name);
+                }
+                mDistributionService.initAdd(name, file.getAbsolutePath());
+                BufferedOutputStream bos = (BufferedOutputStream)mDistributionService.getOutputStream();
+                BufferedInputStream is = new BufferedInputStream(new FileInputStream(file));
+                int i;
+                while((i = is.read()) != -1) {
+                    bos.write(i);
+                }
+                is.close();
+                mDistributionService.execAdd();
+                count++;
+                mOutSize += file.length();
+
+            } else if (file.isDirectory()) {
+                count += distributeAdvancedSimple(file, name);
+            }
+        }
+        // user feedback
+        if ((count / 20 > 0) && count != mLast) {
+            System.out.print(".");
+            mLast = count;
+        }
+        return count;
     }
 
     /**
@@ -719,10 +796,86 @@ public class RestClient implements Client {
      * @param serverIds
      *            Server IDs.
      * @return Distributed files count.
+     * @throws IOException
+     * @throws TransformerException
      */
-    private long distributeAdvancedChunked(final File dir, final String name) {
-        // TODO
-        return 0;
+    private long distributeAdvancedChunked(final File dir, final String name) throws IOException,
+        TransformerException {
+        File[] files = dir.listFiles();
+        long count = 0;
+
+        // name of collection in distributed storage.
+        final String collectionName = name;
+        int creator = 0;
+        for (File file : files) {
+            if (file.getAbsolutePath().endsWith(XML_TYPE)) {
+                // nur beim start ausgef�hrt;
+                if (mOutSize == 0) {
+                    // start subcollection tag
+                    System.out.println("start col");
+                    String host = next(mDataServersArray, runner++);
+                    System.out.println(host);
+                    mRefactoringServers.add(host);
+                    mDistributionService = new DistributionService(host);
+                    // init
+                    if (creator < mDataServersArray.length) {
+                        mDistributionService.createEmptyCollection(collectionName);
+                    }
+                    mDistributionService.initAdd(collectionName, file.getName());
+                    mBos = new BufferedOutputStream(mDistributionService.getOutputStream());
+                    mBos.write(COL_START);
+                }
+
+                else if ((mOutSize + file.length() > mPackageSize)) {
+                    // file to big. close first and write new
+                    mBos.write(COL_END);
+                    mBos.close();
+                    if (creator < mDataServersArray.length) {
+                        creator++;
+                    }
+                    mDistributionService.execAdd();
+                    mOutSize = 0;
+                    // start subcollection tag
+                    String host = next(mDataServersArray, runner++);
+                    mRefactoringServers.add(host);
+                    mDistributionService = new DistributionService(host);
+                    // init
+                    if (creator < mDataServersArray.length) {
+                        mDistributionService.createEmptyCollection(collectionName);
+                    }
+                    mDistributionService.initAdd(collectionName, file.getName());
+                    mBos = new BufferedOutputStream(mDistributionService.getOutputStream());
+                    mBos.write(COL_START);
+                }
+                byte[] startDoc = Token.token("<document path='" + file.getAbsolutePath() + "'>");
+                mBos.write(startDoc);
+                BufferedInputStream is = new BufferedInputStream(new FileInputStream(file));
+                mTrans.transform(new StreamSource(is), new StreamResult(mBos));
+                is.close();
+                byte[] endDoc = Token.token("</document>");
+                mBos.write(endDoc);
+                mOutSize = mOutSize + file.length();
+                count++;
+            } else if (file.isDirectory()) {
+                mH++;
+                count += distributeAdvancedChunked(file, name);
+            }
+        }
+        if (mH < 1) {
+            mBos.write(COL_END);
+            mBos.close();
+            if (creator < mDataServersArray.length) {
+                creator++;
+            }
+            mDistributionService.execAdd();
+        }
+        mH--;
+        // user feedback
+        if ((count / 10 > 0) && count != mLast) {
+            System.out.print(".");
+            mLast = count;
+        }
+        return count;
     }
 
     /**
@@ -735,10 +888,86 @@ public class RestClient implements Client {
      * @param serverIds
      *            Server IDs.
      * @return Distributed files count.
+     * @throws IOException
+     * @throws TransformerException
      */
-    private long distributePartitioned(final File dir, final String name) {
-        // TODO
-        return 0;
+    private long distributePartitioned(final File dir, final String name) throws IOException,
+        TransformerException {
+        File[] files = dir.listFiles();
+        long count = 0;
+
+        // name of collection in distributed storage.
+        final String collectionName = name;
+        int creator = 0;
+        for (File file : files) {
+            if (file.getAbsolutePath().endsWith(XML_TYPE)) {
+                // nur beim start ausgef�hrt;
+                if (mOutSize == 0) {
+                    // start subcollection tag
+                    System.out.println("start col");
+                    String host = next(mDataServersArray, runner++);
+                    System.out.println(host);
+                    mRefactoringServers.add(host);
+                    mDistributionService = new DistributionService(host);
+                    // init
+                    if (creator < mDataServersArray.length) {
+                        mDistributionService.createEmptyCollection(collectionName);
+                    }
+                    mDistributionService.initAdd(collectionName, file.getName());
+                    mBos = new BufferedOutputStream(mDistributionService.getOutputStream());
+                    mBos.write(COL_START);
+                }
+
+                else if ((mOutSize + file.length() > mPackageSize)) {
+                    // file to big. close first and write new
+                    mBos.write(COL_END);
+                    mBos.close();
+                    if (creator < mDataServersArray.length) {
+                        creator++;
+                    }
+                    mDistributionService.execAdd();
+                    mOutSize = 0;
+                    // start subcollection tag
+                    String host = next(mDataServersArray, runner++);
+                    mRefactoringServers.add(host);
+                    mDistributionService = new DistributionService(host);
+                    // init
+                    if (creator < mDataServersArray.length) {
+                        mDistributionService.createEmptyCollection(collectionName);
+                    }
+                    mDistributionService.initAdd(collectionName, file.getName());
+                    mBos = new BufferedOutputStream(mDistributionService.getOutputStream());
+                    mBos.write(COL_START);
+                }
+                byte[] startDoc = Token.token("<document path='" + file.getAbsolutePath() + "'>");
+                mBos.write(startDoc);
+                BufferedInputStream is = new BufferedInputStream(new FileInputStream(file));
+                mTrans.transform(new StreamSource(is), new StreamResult(mBos));
+                is.close();
+                byte[] endDoc = Token.token("</document>");
+                mBos.write(endDoc);
+                mOutSize = mOutSize + file.length();
+                count++;
+            } else if (file.isDirectory()) {
+                mH++;
+                count += distributePartitioned(file, name);
+            }
+        }
+        if (mH < 1) {
+            mBos.write(COL_END);
+            mBos.close();
+            if (creator < mDataServersArray.length) {
+                creator++;
+            }
+            mDistributionService.execAdd();
+        }
+        mH--;
+        // user feedback
+        if ((count / 10 > 0) && count != mLast) {
+            System.out.print(".");
+            mLast = count;
+        }
+        return count;
     }
 
     /**
@@ -773,6 +1002,25 @@ public class RestClient implements Client {
      */
     private String next(final String[] server, final int runner) {
         return server[runner % server.length];
+    }
+
+    /**
+     * Emit the size of a folder.
+     * 
+     * @param directory
+     *            Input collection directory.
+     * @return directory size in bytes.
+     */
+    private long folderSize(final File directory) {
+        // check auf XML
+        long length = 0;
+        for (File file : directory.listFiles()) {
+            if (file.isFile() && file.getAbsolutePath().endsWith(XML_TYPE))
+                length += file.length();
+            else
+                length += folderSize(file);
+        }
+        return length;
     }
 
 }
