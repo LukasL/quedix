@@ -26,8 +26,8 @@ public class MetaData {
         mServerDbMapping = new HashMap<String, List<String>>();
         mServerStorageSize = new HashMap<String, Long>();
         mServerMeta = new ServerMeta();
-//        mServerMeta.setRam(8053063680L);
-        mServerMeta.setRam(500L);
+        mServerMeta.setRam(8053063680L);
+//        mServerMeta.setRam(12862063L);
     }
 
     /**

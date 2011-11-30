@@ -20,7 +20,7 @@
 				<configuration>
 					<archive>
 						<manifest>
-							<mainClass>org.unikn.quedix.rest.basex.RestServer</mainClass>
+							<mainClass>org.unikn.quedix.Runner</mainClass>
 						</manifest>
 					</archive>
 					<descriptors>

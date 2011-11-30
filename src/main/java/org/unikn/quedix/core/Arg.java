@@ -12,7 +12,7 @@ public class Arg {
 
     /** Parameter type. */
     public enum Paramter {
-        NAME, MAP, REDUCE, INPUT, TYPE
+        NAME, MAP, REDUCE, INPUT, TYPE, ALGO
     };
 
     /** Map of parameters. */

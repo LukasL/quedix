@@ -366,10 +366,12 @@ public class RestClient implements Client {
             case ROUND_ROBIN_CHUNK:
                 System.out.println("Execute round robin chunk");
                 sum = distributeRoundRobinChunked(inputDir, tempName);
-                mDistributionService.createEmptyCollection(name);
-                mDistributionService.runRefactoring(tempName, name);
-                mDistributionService.deleteTemporaryCollection(tempName);
-                break;
+                for (String server : mRefactoringServers) {
+                    mDistributionService = new DistributionService(server);
+                    mDistributionService.createEmptyCollection(name);
+                    mDistributionService.runRefactoring(tempName, name);
+                    mDistributionService.deleteTemporaryCollection(tempName);
+                }break;
             case ADVANCED:
                 System.out.println("Execute advanced");
                 sum = distributeAdvancedSimple(inputDir, name);
@@ -396,7 +398,7 @@ public class RestClient implements Client {
                 else
                     amountPackages = (long)a + 1;
                 System.out.println("Packages: "+amountPackages);
-                mPackageSize = (long)(completeSize / amountPackages);
+                mPackageSize = (long)((completeSize / amountPackages)*1.1);
                 System.out.println("Package size: "+mPackageSize);
                 System.out.println("Directory size: " + completeSize);
 
@@ -637,7 +639,7 @@ public class RestClient implements Client {
                     mDistributionService.execAdd();
                     mOutSize = 0;
                     // start subcollection tag
-                    String host = next(mDataServersArray, runner);
+                    String host = next(mDataServersArray, runner++);
                     mRefactoringServers.add(host);
                     mDistributionService = new DistributionService(host);
                     // init
@@ -1017,7 +1019,7 @@ public class RestClient implements Client {
         for (File file : directory.listFiles()) {
             if (file.isFile() && file.getAbsolutePath().endsWith(XML_TYPE))
                 length += file.length();
-            else
+            else if(file.isDirectory())
                 length += folderSize(file);
         }
         return length;
