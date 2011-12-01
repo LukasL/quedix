@@ -466,12 +466,15 @@ public class SocketClient implements Client {
         final File file) throws IOException {
         if (checkCollectionExistence(client, name)) {
             client.execute(OPEN + name);
-            client.add(file.getAbsolutePath(), bis);
         } else {
             client.createCol(name);
-            client.add(file.getAbsolutePath(), bis);
             mMeta.addDb(client.ehost, name);
         }
+//        long start = System.nanoTime();		
+        client.add(file.getAbsolutePath(), bis);
+//    	long end = System.nanoTime() - start;
+//		System.out.println("\nComplete execution time: " + end / 1000000
+//				+ " ms \n");
     }
 
     /**
