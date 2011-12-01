@@ -28,9 +28,9 @@ public class DistributionService {
     /** Registered servers to connect to. */
     private String[] mServers;
     /** {@link OutputStream} from REST request. */
-    private OutputStream output;
+    private OutputStream mOutput;
     /** {@link HttpURLConnection} connection instance. */
-    private HttpURLConnection conn;
+    private HttpURLConnection mConn;
 
     /**
      * Constructor creates REST calls to one server.
@@ -137,8 +137,8 @@ public class DistributionService {
         conn.setDoOutput(true);
         conn.setRequestMethod(PUT);
         conn.setRequestProperty(CONTENT_TYPE_STRING, TEXT_XML);
-        output = new BufferedOutputStream(conn.getOutputStream());
-        this.conn = conn;
+        mOutput = new BufferedOutputStream(conn.getOutputStream());
+        this.mConn = conn;
     }
 
     /**
@@ -150,29 +150,29 @@ public class DistributionService {
      *             Exception occurred.
      */
     public boolean execUpdate() throws IOException {
-        output.close();
-        conn.connect();
-        int code = conn.getResponseCode();
+        mOutput.close();
+        mConn.connect();
+        int code = mConn.getResponseCode();
         System.out.println("code: " + code);
         if (code == 201) {
-            BufferedReader r = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            BufferedReader r = new BufferedReader(new InputStreamReader(mConn.getInputStream()));
             String l;
             while((l = r.readLine()) != null)
                 System.out.println(l);
             r.close();
         } else {
             String l;
-            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(mConn.getErrorStream()));
             while((l = reader.readLine()) != null) {
                 System.out.println(l);
             }
         }
-        conn.disconnect();
+        mConn.disconnect();
         return code == 201;
     }
 
     /**
-     * This method is responsible to prepare a POST request to add documents to
+     * This method is responsible to prepare a PUT request to add documents to
      * an existing collection.
      * 
      * @param collection
@@ -188,32 +188,33 @@ public class DistributionService {
         conn.setDoOutput(true);
         conn.setRequestMethod(PUT);
         conn.setRequestProperty(CONTENT_TYPE_STRING, TEXT_XML);
+        conn.setChunkedStreamingMode(1);
         OutputStream out = new BufferedOutputStream(conn.getOutputStream());
-        output = out;
-        this.conn = conn;
+        mOutput = out;
+        this.mConn = conn;
     }
 
     /**
-     * This method is responsible to execute the prepared HTTP POST request.
+     * This method is responsible to execute the prepared HTTP PUT request.
      * 
      * @return <code>true</code> if the call has been successful, <code>false</code> otherwise.
      * @throws IOException
      *             Exception occurred.
      */
     public boolean execAdd() throws IOException {
-        output.close();
-        int code = conn.getResponseCode();
+        mOutput.close();
+        int code = mConn.getResponseCode();
         if (code == 201)
-            while(conn.getInputStream().read() != -1)
+            while(mConn.getInputStream().read() != -1)
                 ;
         else {
-            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
+            BufferedReader br = new BufferedReader(new InputStreamReader(mConn.getErrorStream()));
             String l;
             while((l = br.readLine()) != null) {
                 System.out.println(l);
             }
         }
-        conn.disconnect();
+        mConn.disconnect();
         return code == 201;
     }
 
@@ -223,7 +224,7 @@ public class DistributionService {
      * @return {@link OutputStream} from REST request.
      */
     public OutputStream getOutputStream() {
-        return output;
+        return mOutput;
     }
 
     /**

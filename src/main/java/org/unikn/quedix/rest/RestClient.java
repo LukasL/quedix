@@ -3,8 +3,10 @@ package org.unikn.quedix.rest;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -371,7 +373,8 @@ public class RestClient implements Client {
                     mDistributionService.createEmptyCollection(name);
                     mDistributionService.runRefactoring(tempName, name);
                     mDistributionService.deleteTemporaryCollection(tempName);
-                }break;
+                }
+                break;
             case ADVANCED:
                 System.out.println("Execute advanced");
                 sum = distributeAdvancedSimple(inputDir, name);
@@ -390,18 +393,17 @@ public class RestClient implements Client {
                 System.out.println("Execute partitioned");
 
                 long completeSize = folderSize(inputDir);
-                System.out.println("Ram size: "+mMeta.getServerMeta().getRam());
+                System.out.println("Ram size: " + mMeta.getServerMeta().getRam());
                 long amountPackages;
                 double a = completeSize / mMeta.getServerMeta().getRam();
                 if ((completeSize % mMeta.getServerMeta().getRam()) == 0)
                     amountPackages = (long)a;
                 else
                     amountPackages = (long)a + 1;
-                System.out.println("Packages: "+amountPackages);
-                mPackageSize = (long)((completeSize / amountPackages)*1.1);
-                System.out.println("Package size: "+mPackageSize);
+                System.out.println("Packages: " + amountPackages);
+                mPackageSize = (long)((completeSize / amountPackages) * 1.1);
+                System.out.println("Package size: " + mPackageSize);
                 System.out.println("Directory size: " + completeSize);
-
                 sum = distributePartitioned(inputDir, tempName);
                 for (String server : mRefactoringServers) {
                     mDistributionService = new DistributionService(server);
@@ -653,7 +655,8 @@ public class RestClient implements Client {
                 byte[] startDoc = Token.token("<document path='" + file.getAbsolutePath() + "'>");
                 mBos.write(startDoc);
                 BufferedInputStream is = new BufferedInputStream(new FileInputStream(file));
-                mTrans.transform(new StreamSource(is), new StreamResult(mBos));
+                // mTrans.transform(new StreamSource(is), new StreamResult(mBos));
+                writeFileToOutput(is, mBos);
                 is.close();
                 byte[] endDoc = Token.token("</document>");
                 mBos.write(endDoc);
@@ -852,7 +855,8 @@ public class RestClient implements Client {
                 byte[] startDoc = Token.token("<document path='" + file.getAbsolutePath() + "'>");
                 mBos.write(startDoc);
                 BufferedInputStream is = new BufferedInputStream(new FileInputStream(file));
-                mTrans.transform(new StreamSource(is), new StreamResult(mBos));
+                // mTrans.transform(new StreamSource(is), new StreamResult(mBos));
+                writeFileToOutput(is, mBos);
                 is.close();
                 byte[] endDoc = Token.token("</document>");
                 mBos.write(endDoc);
@@ -944,7 +948,8 @@ public class RestClient implements Client {
                 byte[] startDoc = Token.token("<document path='" + file.getAbsolutePath() + "'>");
                 mBos.write(startDoc);
                 BufferedInputStream is = new BufferedInputStream(new FileInputStream(file));
-                mTrans.transform(new StreamSource(is), new StreamResult(mBos));
+                // mTrans.transform(new StreamSource(is), new StreamResult(mBos));
+                writeFileToOutput(is, mBos);
                 is.close();
                 byte[] endDoc = Token.token("</document>");
                 mBos.write(endDoc);
@@ -961,14 +966,14 @@ public class RestClient implements Client {
             if (creator < mDataServersArray.length) {
                 creator++;
             }
-            mDistributionService.execAdd();
+            // mDistributionService.execAdd();
         }
         mH--;
         // user feedback
-        if ((count / 10 > 0) && count != mLast) {
-            System.out.print(".");
-            mLast = count;
-        }
+        // if ((count / 10 > 0) && count != mLast) {
+        // System.out.print(".");
+        // mLast = count;
+        // }
         return count;
     }
 
@@ -1019,10 +1024,34 @@ public class RestClient implements Client {
         for (File file : directory.listFiles()) {
             if (file.isFile() && file.getAbsolutePath().endsWith(XML_TYPE))
                 length += file.length();
-            else if(file.isDirectory())
+            else if (file.isDirectory())
                 length += folderSize(file);
         }
         return length;
+    }
+
+    /**
+     * Writes input file to output stream.
+     * 
+     * @param file
+     *            Input file.
+     * @param output
+     *            {@link BufferedOutputStream} for HTTP execution.
+     * @throws IOException
+     */
+    private void writeFileToOutput(final InputStream file, final BufferedOutputStream output)
+        throws IOException {
+
+        BufferedReader br = new BufferedReader(new InputStreamReader(file, UTF8));
+        br.readLine();
+        br.readLine();
+        // int c;
+        String l;
+        while((l = br.readLine()) != null) {
+            output.write(Token.token(l));
+        }
+        br.close();
+
     }
 
 }

@@ -584,26 +584,23 @@ public class SocketClient implements Client {
                 // nur beim start ausgefuehrt;
                 if (mOutSize == 0) {
                     mClient = next(serverIds, mInd++);
-                    distributeXml(mClient, name, bis, file);
                 } else if ((mOutSize + file.length()) > mPartitionedPackage) {
                     mOutSize = 0;
                     mClient = next(serverIds, mInd++);
-                    distributeXml(mClient, name, bis, file);
-                } else {
-                    distributeXml(mClient, name, bis, file);
                 }
+                distributeXml(mClient, name, bis, file);
                 mOutSize += file.length();
                 bis.close();
                 count++;
             } else if (file.isDirectory()) {
-                count += distributeAdvanced(file, name, serverIds);
+                count += distributePartitioned(file, name, serverIds);
             }
 
             // user feedback
-            if ((count % 10 == 0) && count != mLast) {
-                System.out.print(".");
-                mLast = count;
-            }
+//            if ((count % 10 == 0) && count != mLast) {
+//                System.out.print(".");
+//                mLast = count;
+//            }
         }
         return count;
     }
