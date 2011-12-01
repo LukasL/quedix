@@ -16,7 +16,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import org.basex.data.MetaData;
 import org.unikn.quedix.core.Client;
 import org.unikn.quedix.core.DistributionAlgorithm;
 import org.unikn.quedix.socket.BaseXClient.Query;
@@ -41,8 +40,6 @@ public class SocketClient implements Client {
     public static final String EQ3 = "1";
     /** Example query 4. */
     public static final String EQ4 = "count(doc('factbook')/descendant::text())*2";
-    /** Package size. */
-    private static final int PACKAGE_SIZE = 67108864;
     /** XML file ending. */
     private static final String XML = ".xml";
     /** Open command. */
@@ -597,26 +594,12 @@ public class SocketClient implements Client {
             }
 
             // user feedback
-//            if ((count % 10 == 0) && count != mLast) {
-//                System.out.print(".");
-//                mLast = count;
-//            }
+            // if ((count % 10 == 0) && count != mLast) {
+            // System.out.print(".");
+            // mLast = count;
+            // }
         }
         return count;
-    }
-
-    /**
-     * Updates meta information from all servers.
-     * 
-     * @throws IOException
-     *             Exception occurred.
-     */
-    private void updateMeta() throws IOException {
-        for (Map.Entry<String, BaseXClient> cls : mClients.entrySet()) {
-            final BaseXClient c = cls.getValue();
-            mMeta.addServer(c.ehost);
-            c.execute(LIST);
-        }
     }
 
     /**
