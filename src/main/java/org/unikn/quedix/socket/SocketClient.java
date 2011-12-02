@@ -1,24 +1,35 @@
 package org.unikn.quedix.socket;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.basex.core.Context;
+import org.basex.core.cmd.Run;
+import org.basex.util.Token;
 import org.unikn.quedix.core.Client;
 import org.unikn.quedix.core.DistributionAlgorithm;
 import org.unikn.quedix.socket.BaseXClient.Query;
+
+import static org.unikn.quedix.rest.Constants.UTF8;
 
 /**
  * This client class connects clients to BaseX server to simulate a distributed
@@ -41,9 +52,9 @@ public class SocketClient implements Client {
     /** Example query 4. */
     public static final String EQ4 = "count(doc('factbook')/descendant::text())*2";
     /** XML file ending. */
-    private static final String XML = ".xml";
+    protected static final String XML = ".xml";
     /** Open command. */
-    private static final String OPEN = "Open ";
+    protected static final String OPEN = "Open ";
     /** Create command. */
     private static final String CREATE_DB = "Create db ";
     /** List command. */
@@ -51,24 +62,25 @@ public class SocketClient implements Client {
     /** Delete command . */
     private static final String DELETE = "delete ";
 
+
     /** Client instances. */
-    private Map<String, BaseXClient> mClients;
+    protected Map<String, BaseXClient> mClients;
     /** Map names. */
     private Map<String, String> mMapNames;
     /** Client database Mapping. */
     private Map<BaseXClient, List<String>> mDbClientMapping;
-    /** Written chunks. */
-    private long mOutSize = 0;
-    /** Index. */
-    private int mInd = 0;
+
     /** Client. */
-    private BaseXClient mClient = null;
-    /** Last user feedback check. */
-    private long mLast = 0;
+    protected BaseXClient mClient = null;
     /** Meta data. */
-    private org.unikn.quedix.core.MetaData mMeta;
+    protected org.unikn.quedix.core.MetaData mMeta;
     /** Amount of parts for the partitioned distribution algorithm. */
-    private long mPartitionedPackage = 0;
+    protected long mPartitionedPackage = 0;
+    /** Check if first document. */
+    protected boolean mIsFirst;
+    /** Set used to start refactoring operations. */
+    protected Set<BaseXClient> mRefactoring = new HashSet<BaseXClient>();
+    private String mRefactorXq;
 
     /**
      * Constructor connects clients to BaseX server.
@@ -304,74 +316,7 @@ public class SocketClient implements Client {
         }
 
     }
-
-    @Override
-    public boolean distributeCollection(final String collection, final String name,
-        final DistributionAlgorithm algorithm) throws IOException {
-        boolean isSuccessful = true;
-        long start = System.nanoTime();
-        // input folder containing XML documents to be stored.
-        final File inputDir = new File(collection);
-        String[] serverIds = new String[mClients.size()];
-        int i = 0;
-        for (Map.Entry<String, BaseXClient> entry : mClients.entrySet())
-            serverIds[i++] = entry.getKey();
-        if (inputDir.isDirectory()) {
-            System.out.println("Start import collection...");
-            long sum = -1;
-            switch (algorithm) {
-            case ROUND_ROBIN_SIMPLE:
-                System.out.println("Execute round robin simple");
-                sum = distributeRoundRobin(inputDir, name, serverIds);
-                break;
-            case ROUND_ROBIN_CHUNK:
-                System.out.println("Execute round robin simple");
-                sum = distributeRoundRobin(inputDir, name, serverIds);
-                break;
-            case ADVANCED:
-                System.out.println("Execute round robin advanced");
-                sum = distributeAdvanced(inputDir, name, serverIds);
-                break;
-            case ADVANCED_CHUNK:
-                System.out.println("Execute round robin advanced");
-                sum = distributeAdvanced(inputDir, name, serverIds);
-                break;
-            case PARTITIONING:
-                System.out.println("Execute partitioned");
-                long completeSize = folderSize(inputDir);
-                long amountPackages;
-                double a = completeSize / mMeta.getServerMeta().getRam();
-                if ((completeSize % mMeta.getServerMeta().getRam()) == 0)
-                    amountPackages = (long)a;
-                else
-                    amountPackages = (long)a + 1;
-                mPartitionedPackage = (long)(completeSize / amountPackages);
-                System.out.println("Directory size: " + completeSize);
-
-                sum = distributePartitioned(inputDir, name, serverIds);
-                break;
-
-            default:
-                System.out.println("Not supported");
-                break;
-            }
-            System.out.println("Amount of imported files: " + sum);
-        } else if (inputDir.getAbsolutePath().endsWith(XML)) {
-            System.out.println("Start import single XML file");
-            BaseXClient client = next(serverIds, 0);
-            System.out.println("Distributed to: " + client.ehost);
-            BufferedInputStream bis = new BufferedInputStream(new FileInputStream(inputDir));
-            distributeXml(client, name, bis, inputDir);
-            bis.close();
-        } else
-            System.err.println("False input path. Try again.");
-        System.out.println("Progress: 100.0 %.");
-        long end = System.nanoTime() - start;
-        System.out.println("Done in " + ((double)end / 1000000000.0) + " s");
-
-        return isSuccessful;
-    }
-
+    
     @Override
     public void execute(final String xq, final OutputStream output) {
         if (mClients != null) {
@@ -424,187 +369,10 @@ public class SocketClient implements Client {
      *            runner.
      * @return next BaseXClient instance.
      */
-    private BaseXClient next(String[] server, final int runner) {
+    protected BaseXClient next(String[] server, final int runner) {
         return mClients.get(server[runner % server.length]);
     }
-
-    /**
-     * Checks existence of collection.
-     * 
-     * @param client
-     *            {@link BaseXClient} instance.
-     * @param collectionName
-     *            Collection name.
-     * @return <code>true</code> if collection exists, <code>false</code> otherwise.
-     */
-    private boolean checkCollectionExistence(final BaseXClient client, final String collectionName) {
-        if (mMeta.containsServer(client.ehost)) {
-            List<String> dbs = mMeta.getDbList(client.ehost);
-            for (String db : dbs) {
-                if (db.equals(collectionName))
-                    return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Distributes file.
-     * 
-     * @param client
-     *            {@link BaseXClient} instance.
-     * @param name
-     *            Collection file.
-     * @param bis
-     *            {@link BufferedInputStream} holding XML file.
-     * @param file
-     *            {@link File} reference.
-     * @throws IOException
-     *             Exception while writing with client.
-     */
-    private void distributeXml(final BaseXClient client, final String name, final BufferedInputStream bis,
-        final File file) throws IOException {
-        if (checkCollectionExistence(client, name)) {
-            client.execute(OPEN + name);
-        } else {
-            client.createCol(name);
-            mMeta.addDb(client.ehost, name);
-        }
-//        long start = System.nanoTime();		
-        client.add(file.getAbsolutePath(), bis);
-//    	long end = System.nanoTime() - start;
-//		System.out.println("\nComplete execution time: " + end / 1000000
-//				+ " ms \n");
-    }
-
-    /**
-     * Traverses an input directory for distribution of collection.
-     * 
-     * @param dir
-     *            Input directory.
-     * @param name
-     *            Name of collection.
-     * @param serverIds
-     *            Server IDs.
-     * @return Distributed files count.
-     * @throws IOException
-     *             Exception occurred.
-     */
-    private long distributeRoundRobin(final File dir, final String name, final String[] serverIds)
-        throws IOException {
-        File[] files = dir.listFiles();
-        long count = 0;
-        for (File file : files) {
-            if (file.isFile() && file.getAbsolutePath().endsWith(XML)) {
-                BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
-                mClient = next(serverIds, mInd++);
-                distributeXml(mClient, name, bis, file);
-                bis.close();
-                count++;
-            } else if (file.isDirectory()) {
-                count += distributeRoundRobin(file, name, serverIds);
-            }
-
-            // user feedback
-            if ((count % 10 == 0) && count != mLast) {
-                System.out.print(".");
-                mLast = count;
-            }
-        }
-        return count;
-    }
-
-    /**
-     * Distributes collection using the advanced algorithm using addition meta information.
-     * 
-     * @param dir
-     *            Input directory.
-     * @param name
-     *            Name of collection.
-     * @param serverIds
-     *            Server IDs.
-     * @return Distributed files count.
-     * @throws IOException
-     *             Exception occurred.
-     */
-    private long distributeAdvanced(final File dir, final String name, final String[] serverIds)
-        throws IOException {
-        File[] files = dir.listFiles();
-        long count = 0;
-        for (File file : files) {
-            if (file.isFile() && file.getAbsolutePath().endsWith(XML)) {
-                BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
-                // nur beim start ausgefuehrt;
-                if (mOutSize == 0) {
-                    mClient = next(serverIds, mInd++);
-                    distributeXml(mClient, name, bis, file);
-                } else if ((mOutSize + file.length()) > mMeta.getServerMeta().getRam()) {
-                    mOutSize = 0;
-                    mClient = next(serverIds, mInd++);
-                    distributeXml(mClient, name, bis, file);
-                } else {
-                    distributeXml(mClient, name, bis, file);
-                }
-                mOutSize += file.length();
-                bis.close();
-                count++;
-            } else if (file.isDirectory()) {
-                count += distributeAdvanced(file, name, serverIds);
-            }
-
-            // user feedback
-            if ((count % 10 == 0) && count != mLast) {
-                System.out.print(".");
-                mLast = count;
-            }
-        }
-        return count;
-    }
-
-    /**
-     * Distributes collection using the partitioning algorithm using addition meta information.
-     * 
-     * @param dir
-     *            Input directory.
-     * @param name
-     *            Name of collection.
-     * @param serverIds
-     *            Server IDs.
-     * @return Distributed files count.
-     * @throws IOException
-     *             Exception occurred.
-     */
-    private long distributePartitioned(final File dir, final String name, final String[] serverIds)
-        throws IOException {
-        File[] files = dir.listFiles();
-        long count = 0;
-        for (File file : files) {
-            if (file.isFile() && file.getAbsolutePath().endsWith(XML)) {
-                BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
-                // nur beim start ausgefuehrt;
-                if (mOutSize == 0) {
-                    mClient = next(serverIds, mInd++);
-                } else if ((mOutSize + file.length()) > mPartitionedPackage) {
-                    mOutSize = 0;
-                    mClient = next(serverIds, mInd++);
-                }
-                distributeXml(mClient, name, bis, file);
-                mOutSize += file.length();
-                bis.close();
-                count++;
-            } else if (file.isDirectory()) {
-                count += distributePartitioned(file, name, serverIds);
-            }
-
-            // user feedback
-            // if ((count % 10 == 0) && count != mLast) {
-            // System.out.print(".");
-            // mLast = count;
-            // }
-        }
-        return count;
-    }
-
+    
     /**
      * Emit the size of a folder.
      * 
@@ -612,7 +380,7 @@ public class SocketClient implements Client {
      *            Input collection directory.
      * @return directory size in bytes.
      */
-    private long folderSize(final File directory) {
+    protected long folderSize(final File directory) {
         // check auf XML
         long length = 0;
         for (File file : directory.listFiles()) {
@@ -623,5 +391,45 @@ public class SocketClient implements Client {
         }
         return length;
     }
+    
+    /**
+     * Creates a collection out of sub collection.
+     * 
+     * @param client
+     *            BaseX client instance.
+     * @param tempName
+     *            Temporary database.
+     * @param name
+     *            Name of new collection.
+     * @throws IOException
+     */
+    protected void runRefactoring(final BaseXClient client, final String tempName, final String name)
+        throws IOException {
+        client.createCol(name);
+        Query q = client.query(getRefactorXq());
+        q.bind("subcollection", tempName);
+        q.bind("collectionname", name);
+        q.execute();
+        q.close();
+        client.execute("Drop database " + tempName);
+    }
 
+    /**
+     * Setter.
+     * 
+     * @param refactorXq
+     *            The refactorXq to set.
+     */
+    public void setRefactorXq(final String refactorXq) {
+        mRefactorXq = refactorXq;
+    }
+
+    /**
+     * Getter.
+     * 
+     * @return Returns the refactorXq.
+     */
+    public String getRefactorXq() {
+        return mRefactorXq;
+    }
 }

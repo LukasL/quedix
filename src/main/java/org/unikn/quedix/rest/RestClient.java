@@ -33,6 +33,7 @@ import javax.xml.transform.stream.StreamSource;
 import org.basex.util.Token;
 import org.unikn.quedix.core.Client;
 import org.unikn.quedix.core.DistributionAlgorithm;
+import org.unikn.quedix.core.Distributor;
 import org.unikn.quedix.core.MetaData;
 
 import static org.unikn.quedix.rest.Constants.DELETE;
@@ -45,7 +46,7 @@ import static org.unikn.quedix.rest.Constants.XML_TYPE;
  * 
  * @author Lukas Lewandowski, University of Konstanz.
  */
-public class RestClient implements Client {
+public class RestClient implements Client, Distributor {
 
 	/** Example query 1. */
 	public static final String EQ1 = "//user";
@@ -655,7 +656,7 @@ public class RestClient implements Client {
 								.createEmptyCollection(collectionName);
 					}
 					mDistributionService
-							.initAdd(collectionName, file.getName());
+							.initAdd(collectionName, file.getAbsolutePath());
 					mBos = new BufferedOutputStream(
 							mDistributionService.getOutputStream());
 					mBos.write(COL_START);
@@ -680,7 +681,7 @@ public class RestClient implements Client {
 								.createEmptyCollection(collectionName);
 					}
 					mDistributionService
-							.initAdd(collectionName, file.getName());
+							.initAdd(collectionName, file.getAbsolutePath());
 					mBos = new BufferedOutputStream(
 							mDistributionService.getOutputStream());
 					mBos.write(COL_START);

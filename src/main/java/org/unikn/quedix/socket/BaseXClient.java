@@ -164,6 +164,29 @@ public final class BaseXClient {
     }
 
     /**
+     * Prepares document adding.
+     * 
+     * @param path
+     *            path to document
+     * @param input
+     *            xml input
+     * @throws IOException
+     *             I/O exception
+     */
+    public void addPrepare(final String path) throws IOException {
+        addPrepare(9, path);
+    }
+
+    /**
+     * Returns {@link OutputStream} to write in.
+     * 
+     * @return {@link OutputStream} to writing manually to server.
+     */
+    public OutputStream getOutputStream() {
+        return out;
+    }
+
+    /**
      * Replaces a document in a database.
      * 
      * @param path
@@ -270,7 +293,7 @@ public final class BaseXClient {
      * @throws IOException
      *             Exception
      */
-    boolean ok() throws IOException {
+    public boolean ok() throws IOException {
         out.flush();
         return in.read() == 0;
     }
@@ -282,7 +305,7 @@ public final class BaseXClient {
      * @throws IOException
      *             I/O exception
      */
-    String receive() throws IOException {
+    public String receive() throws IOException {
         final ByteArrayOutputStream os = new ByteArrayOutputStream();
         receive(in, os);
         return new String(os.toByteArray(), UTF8);
@@ -333,6 +356,21 @@ public final class BaseXClient {
         out.write(cmd);
         send(path);
         send(input);
+    }
+
+    /**
+     * Sends a command, argument.
+     * 
+     * @param cmd
+     *            command
+     * @param path
+     *            path to document
+     * @throws IOException
+     *             I/O exception
+     */
+    private void addPrepare(final int cmd, final String path) throws IOException {
+        out.write(cmd);
+        send(path);
     }
 
     /**

@@ -62,20 +62,4 @@ public interface Client {
      */
     public void createMapperDb(final String dataServer);
 
-    /**
-     * Distributes an XML collection to the available servers.
-     * 
-     * @param collection
-     *            Path of XML directory.
-     * @param name
-     *            The name of XML collection.
-     * @param algorithm
-     *            Distribution algorithm.
-     * @return <code>true</code> if the distribution was successful, <code>false</code> otherwise.
-     * @exception Exception
-     *                Exception occurred.
-     */
-    public boolean distributeCollection(final String collection, final String name,
-        final DistributionAlgorithm algorithm) throws Exception;
-
 }

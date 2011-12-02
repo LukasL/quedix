@@ -16,6 +16,7 @@ import org.unikn.quedix.map.MapClient;
 import org.unikn.quedix.reduce.ReduceClient;
 import org.unikn.quedix.rest.RestClient;
 import org.unikn.quedix.socket.BaseXClient;
+import org.unikn.quedix.socket.DistributionClient;
 import org.unikn.quedix.socket.SocketClient;
 
 /**
@@ -146,11 +147,11 @@ public class Runner {
 			final ClientType type, final DistributionAlgorithm algo)
 			throws IOException {
 		try {
-			Client cl;
+			org.unikn.quedix.core.Distributor cl;
 			if (type == ClientType.REST)
 				cl = new RestClient(initHttpDataServersMonds(), new MetaData());
 			else
-				cl = new SocketClient(initBaseXClientsMonds(), new MetaData());
+				cl = new DistributionClient(initBaseXClientsMonds(), new MetaData());
 			cl.distributeCollection(xmlDir, name, algo);
 		} catch (final Exception exc) {
 			exc.printStackTrace();
