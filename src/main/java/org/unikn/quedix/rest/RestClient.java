@@ -1,5 +1,10 @@
 package org.unikn.quedix.rest;
 
+import static org.unikn.quedix.rest.Constants.DELETE;
+import static org.unikn.quedix.rest.Constants.PUT;
+import static org.unikn.quedix.rest.Constants.UTF8;
+import static org.unikn.quedix.rest.Constants.XML_TYPE;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -13,8 +18,10 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -35,11 +42,6 @@ import org.unikn.quedix.core.Client;
 import org.unikn.quedix.core.DistributionAlgorithm;
 import org.unikn.quedix.core.Distributor;
 import org.unikn.quedix.core.MetaData;
-
-import static org.unikn.quedix.rest.Constants.DELETE;
-import static org.unikn.quedix.rest.Constants.PUT;
-import static org.unikn.quedix.rest.Constants.UTF8;
-import static org.unikn.quedix.rest.Constants.XML_TYPE;
 
 /**
  * This class is responsible to execute parallel queries over HTTP.
@@ -107,7 +109,8 @@ public class RestClient implements Client, Distributor {
 	/** Dynamic package size. */
 	private long mPackageSize = 0;
 	/** Refactoring servers. */
-	private List<String> mRefactoringServers = new ArrayList<String>();
+	private Set<String> mRefactoringServers = new HashSet<String>();
+	private int mCreator = 0;
 
 	/**
 	 * Default constructor.
@@ -640,7 +643,6 @@ public class RestClient implements Client, Distributor {
 
 		// name of collection in distributed storage.
 		final String collectionName = name;
-		int creator = 0;
 		for (File file : files) {
 			if (file.getAbsolutePath().endsWith(XML_TYPE)) {
 				// nur beim start ausgef�hrt;
@@ -651,12 +653,12 @@ public class RestClient implements Client, Distributor {
 					mRefactoringServers.add(host);
 					mDistributionService = new DistributionService(host);
 					// init
-					if (creator < mDataServersArray.length) {
+					if (mCreator < mDataServersArray.length) {
 						mDistributionService
 								.createEmptyCollection(collectionName);
 					}
-					mDistributionService
-							.initAdd(collectionName, file.getAbsolutePath());
+					mDistributionService.initAdd(collectionName,
+							file.getAbsolutePath());
 					mBos = new BufferedOutputStream(
 							mDistributionService.getOutputStream());
 					mBos.write(COL_START);
@@ -666,8 +668,8 @@ public class RestClient implements Client, Distributor {
 					// file to big. close first and write new
 					mBos.write(COL_END);
 					mBos.close();
-					if (creator < mDataServersArray.length) {
-						creator++;
+					if (mCreator < mDataServersArray.length) {
+						mCreator++;
 					}
 					mDistributionService.execAdd();
 					mOutSize = 0;
@@ -676,12 +678,12 @@ public class RestClient implements Client, Distributor {
 					mRefactoringServers.add(host);
 					mDistributionService = new DistributionService(host);
 					// init
-					if (creator < mDataServersArray.length) {
+					if (mCreator < mDataServersArray.length) {
 						mDistributionService
 								.createEmptyCollection(collectionName);
 					}
-					mDistributionService
-							.initAdd(collectionName, file.getAbsolutePath());
+					mDistributionService.initAdd(collectionName,
+							file.getAbsolutePath());
 					mBos = new BufferedOutputStream(
 							mDistributionService.getOutputStream());
 					mBos.write(COL_START);
@@ -706,8 +708,8 @@ public class RestClient implements Client, Distributor {
 		if (mH < 1) {
 			mBos.write(COL_END);
 			mBos.close();
-			if (creator < mDataServersArray.length) {
-				creator++;
+			if (mCreator < mDataServersArray.length) {
+				mCreator++;
 			}
 			mDistributionService.execAdd();
 		}
@@ -863,7 +865,6 @@ public class RestClient implements Client, Distributor {
 
 		// name of collection in distributed storage.
 		final String collectionName = name;
-		int creator = 0;
 		for (File file : files) {
 			if (file.getAbsolutePath().endsWith(XML_TYPE)) {
 				// nur beim start ausgef�hrt;
@@ -875,7 +876,7 @@ public class RestClient implements Client, Distributor {
 					mRefactoringServers.add(host);
 					mDistributionService = new DistributionService(host);
 					// init
-					if (creator < mDataServersArray.length) {
+					if (mCreator < mDataServersArray.length) {
 						mDistributionService
 								.createEmptyCollection(collectionName);
 					}
@@ -890,8 +891,8 @@ public class RestClient implements Client, Distributor {
 					// file to big. close first and write new
 					mBos.write(COL_END);
 					mBos.close();
-					if (creator < mDataServersArray.length) {
-						creator++;
+					if (mCreator < mDataServersArray.length) {
+						mCreator++;
 					}
 					mDistributionService.execAdd();
 					mOutSize = 0;
@@ -900,7 +901,7 @@ public class RestClient implements Client, Distributor {
 					mRefactoringServers.add(host);
 					mDistributionService = new DistributionService(host);
 					// init
-					if (creator < mDataServersArray.length) {
+					if (mCreator < mDataServersArray.length) {
 						mDistributionService
 								.createEmptyCollection(collectionName);
 					}
@@ -930,8 +931,8 @@ public class RestClient implements Client, Distributor {
 		if (mH < 1) {
 			mBos.write(COL_END);
 			mBos.close();
-			if (creator < mDataServersArray.length) {
-				creator++;
+			if (mCreator < mDataServersArray.length) {
+				mCreator++;
 			}
 			mDistributionService.execAdd();
 		}
@@ -965,7 +966,6 @@ public class RestClient implements Client, Distributor {
 
 		// name of collection in distributed storage.
 		final String collectionName = name;
-		int creator = 0;
 		for (File file : files) {
 			if (file.getAbsolutePath().endsWith(XML_TYPE)) {
 				// nur beim start ausgef�hrt;
@@ -977,7 +977,7 @@ public class RestClient implements Client, Distributor {
 					mRefactoringServers.add(host);
 					mDistributionService = new DistributionService(host);
 					// init
-					if (creator < mDataServersArray.length) {
+					if (mCreator < mDataServersArray.length) {
 						mDistributionService
 								.createEmptyCollection(collectionName);
 					}
@@ -992,8 +992,8 @@ public class RestClient implements Client, Distributor {
 					// file to big. close first and write new
 					mBos.write(COL_END);
 					mBos.close();
-					if (creator < mDataServersArray.length) {
-						creator++;
+					if (mCreator < mDataServersArray.length) {
+						mCreator++;
 					}
 					mDistributionService.execAdd();
 					mOutSize = 0;
@@ -1002,7 +1002,7 @@ public class RestClient implements Client, Distributor {
 					mRefactoringServers.add(host);
 					mDistributionService = new DistributionService(host);
 					// init
-					if (creator < mDataServersArray.length) {
+					if (mCreator < mDataServersArray.length) {
 						mDistributionService
 								.createEmptyCollection(collectionName);
 					}
@@ -1032,8 +1032,8 @@ public class RestClient implements Client, Distributor {
 		if (mH < 1) {
 			mBos.write(COL_END);
 			mBos.close();
-			if (creator < mDataServersArray.length) {
-				creator++;
+			if (mCreator < mDataServersArray.length) {
+				mCreator++;
 			}
 			mDistributionService.execAdd();
 		}
@@ -1115,9 +1115,9 @@ public class RestClient implements Client, Distributor {
 		BufferedReader br = new BufferedReader(
 				new InputStreamReader(file, UTF8));
 		// // XML declaration
-		 br.readLine();
+		br.readLine();
 		// // DOC-Type declaration
-		 br.readLine();
+		br.readLine();
 		String l;
 		while ((l = br.readLine()) != null) {
 			output.write(Token.token(l));

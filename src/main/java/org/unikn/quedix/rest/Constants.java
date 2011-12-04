@@ -24,20 +24,20 @@ package org.unikn.quedix.rest;
  */
 public class Constants {
 
-    /** HTTP PUT string. */
-    public static final String PUT = "PUT";
-    /** HTTP POST string. */
-    public static final String POST = "POST";
-    /** DELETE HTTP method string. */
-    public static final String DELETE = "DELETE";
-    /** Content type string. */
-    public static final String CONTENT_TYPE_STRING = "Content-Type";
-    /** RAW type. */
-    public static final String RAW = "raw";
-    /** UTF-8 string. */
-    public static final String UTF8 = "UTF-8";
-    /** XML file type. */
-    public static final String XML_TYPE = ".xml";
-    /** Content type text/xml. */
-    public static final String TEXT_XML = "application/xml";
+	/** HTTP PUT string. */
+	public static final String PUT = "PUT";
+	/** HTTP POST string. */
+	public static final String POST = "POST";
+	/** DELETE HTTP method string. */
+	public static final String DELETE = "DELETE";
+	/** Content type string. */
+	public static final String CONTENT_TYPE_STRING = "Content-Type";
+	/** RAW type. */
+	public static final String RAW = "raw";
+	/** UTF-8 string. */
+	public static final String UTF8 = "UTF-8";
+	/** XML file type. */
+	public static final String XML_TYPE = ".xml";
+	/** Content type text/xml. */
+	public static final String TEXT_XML = "application/xml";
 }

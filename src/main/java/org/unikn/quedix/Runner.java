@@ -7,7 +7,6 @@ import java.util.Map;
 
 import org.basex.query.QueryException;
 import org.unikn.quedix.core.Arg;
-import org.unikn.quedix.core.Client;
 import org.unikn.quedix.core.ClientType;
 import org.unikn.quedix.core.DistributionAlgorithm;
 import org.unikn.quedix.core.MetaData;
@@ -151,7 +150,8 @@ public class Runner {
 			if (type == ClientType.REST)
 				cl = new RestClient(initHttpDataServersMonds(), new MetaData());
 			else
-				cl = new DistributionClient(initBaseXClientsMonds(), new MetaData());
+				cl = new DistributionClient(initBaseXClientsMonds(),
+						new MetaData());
 			cl.distributeCollection(xmlDir, name, algo);
 		} catch (final Exception exc) {
 			exc.printStackTrace();
