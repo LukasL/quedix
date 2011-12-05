@@ -38,7 +38,7 @@ public class DistributionClient extends SocketClient implements
 	private static final String DOC_START_A = "<document path='";
 	private static final String DOC_START_B = "'>";
 	/** XQ for refactoring subcollection workaround. */
-	private static final String RQ = "refactor.xq";
+	private static final String RQ = "refactor2.xq";
 
 	/** Written chunks. */
 	private long mOutSize = 0;
