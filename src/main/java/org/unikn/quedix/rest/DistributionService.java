@@ -1,11 +1,5 @@
 package org.unikn.quedix.rest;
 
-import static org.unikn.quedix.rest.Constants.CONTENT_TYPE_STRING;
-import static org.unikn.quedix.rest.Constants.DELETE;
-import static org.unikn.quedix.rest.Constants.POST;
-import static org.unikn.quedix.rest.Constants.PUT;
-import static org.unikn.quedix.rest.Constants.TEXT_XML;
-
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -14,6 +8,12 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+
+import static org.unikn.quedix.rest.Constants.CONTENT_TYPE_STRING;
+import static org.unikn.quedix.rest.Constants.DELETE;
+import static org.unikn.quedix.rest.Constants.POST;
+import static org.unikn.quedix.rest.Constants.PUT;
+import static org.unikn.quedix.rest.Constants.TEXT_XML;
 
 /**
  * This class is responsible to distribute a collection of XML documents to the
@@ -24,7 +24,7 @@ import java.net.URL;
 public class DistributionService {
 
 	/** XQ for refactoring subcollection workaround. */
-	private static final String RQ = "refactor.xq";
+	private static final String RQ = "refactor2.xq";
 	/** Registered servers to connect to. */
 	private String[] mServers;
 	/** {@link OutputStream} from REST request. */
