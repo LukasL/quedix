@@ -83,7 +83,7 @@ TRACE 300401:
 TRACE 300404:
 	java.io.FileInputStream.readBytes(FileInputStream.java:Unknown line)
 	java.io.FileInputStream.read(FileInputStream.java:220)
-	java.io.BufferedInputStream.fill(BufferedInputStream.java:218)
+<	java.io.BufferedInputStream.fill(BufferedInputStream.java:218)
 	java.io.BufferedInputStream.read(BufferedInputStream.java:237)
 	org.unikn.quedix.rest.RestClient.distributeAdvancedSimple(RestClient.java:827)
 	org.unikn.quedix.rest.RestClient.distributeAdvancedSimple(RestClient.java:836)

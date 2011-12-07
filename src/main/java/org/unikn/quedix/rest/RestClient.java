@@ -1112,6 +1112,20 @@ public class RestClient implements Client, Distributor {
 	private void writeFileToOutput(final InputStream file,
 			final BufferedOutputStream output) throws IOException {
 
+
+		BufferedInputStream bis = new BufferedInputStream(file);
+		// skip first two lines
+		int c = 0;
+		for(int i; (i = bis.read()) != -1;) {
+			if(i == '\n' && ++c == 2) break;
+		}
+		// pass on remaining data
+		for(int i; (i = bis.read()) != -1;) {
+			output.write(i);
+		}
+		bis.close();
+		
+		/*
 		BufferedReader br = new BufferedReader(
 				new InputStreamReader(file, UTF8));
 		// // XML declaration
@@ -1123,7 +1137,7 @@ public class RestClient implements Client, Distributor {
 			output.write(Token.token(l));
 		}
 		br.close();
-
+       */
 	}
 
 }
