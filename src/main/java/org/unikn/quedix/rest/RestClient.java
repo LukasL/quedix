@@ -762,6 +762,7 @@ public class RestClient implements Client, Distributor {
 				}
 				is.close();
 				// long start = System.nanoTime();
+				bos.close();
 				mDistributionService.execAdd();
 				// long end = System.nanoTime() - start;
 				// System.out.println("\nComplete execution time: " + end /
