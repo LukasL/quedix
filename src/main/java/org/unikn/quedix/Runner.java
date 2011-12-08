@@ -254,8 +254,8 @@ public class Runner {
 				REST_COL);
 		dataServers.put(HTTP + MOND_3 + COLON + MOND_HTTP_PORT + SLASH,
 				REST_COL);
-		dataServers.put(HTTP + MOND_4 + COLON + MOND_HTTP_PORT + SLASH,
-				REST_COL);
+//		dataServers.put(HTTP + MOND_4 + COLON + MOND_HTTP_PORT + SLASH,
+//				REST_COL);
 		dataServers.put(HTTP + MOND_5 + COLON + MOND_HTTP_PORT + SLASH,
 				REST_COL);
 		return dataServers;
@@ -276,8 +276,8 @@ public class Runner {
 				PW));
 		clients.put("mond03", new BaseXClient(MOND_3, MOND_SOCKET_PORT, USER,
 				PW));
-		clients.put("mond04", new BaseXClient(MOND_4, MOND_SOCKET_PORT, USER,
-				PW));
+//		clients.put("mond04", new BaseXClient(MOND_4, MOND_SOCKET_PORT, USER,
+//				PW));
 		clients.put("mond05", new BaseXClient(MOND_5, MOND_SOCKET_PORT, USER,
 				PW));
 		return clients;
