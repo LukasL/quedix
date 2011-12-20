@@ -111,6 +111,7 @@ public class DistributionClient extends SocketClient implements org.unikn.quedix
             case ADVANCED_CHUNK:
                 System.out.println("Execute round robin advanced");
                 sum = distributeAdvanced(inputDir, name, serverIds);
+                System.out.println("Chunk size: " + mOutSize);
                 break;
             case PARTITIONING:
                 System.out.println("Execute partitioned");
@@ -380,6 +381,7 @@ public class DistributionClient extends SocketClient implements org.unikn.quedix
                     mClientsForFlushing.add(mClient);
                     distributeXml(mClient, name, bis, file);
                 } else if ((mOutSize + file.length()) > mMeta.getServerMeta().getRam()) {
+                    System.out.println("Chunk size: " + mOutSize);
                     mOutSize = 0;
                     mClient = next(serverIds, mInd++);
                     mIsFirst = true;
@@ -430,6 +432,7 @@ public class DistributionClient extends SocketClient implements org.unikn.quedix
                     mClient = next(serverIds, mInd++);
                     mIsFirst = true;
                 } else if ((mOutSize + file.length()) > mPartitionedPackage) {
+                    System.out.println("Chunk size: " + mOutSize);
                     mOutSize = 0;
                     mClient = next(serverIds, mInd++);
                     mIsFirst = true;
