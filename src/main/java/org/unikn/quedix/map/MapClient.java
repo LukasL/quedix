@@ -98,17 +98,22 @@ public class MapClient {
 	 */
 	public void execute() {
 		try {
-			final PipedOutputStream pos = new PipedOutputStream();
-			final PipedInputStream pis = new PipedInputStream(pos);
-			executeReadPipeThread(pis);
-			mReducer.sendReducerTask();
-			final DataOutputStream out = new DataOutputStream(
-					new BufferedOutputStream(pos));
-			out.write(Token.token(START));
-			mClient.execute(mMappingXq, out);
-			out.write(Token.token(END));
-			out.close();
-			pos.close();
+		        if(mReducer!=null){
+		            final PipedOutputStream pos = new PipedOutputStream();
+		            final PipedInputStream pis = new PipedInputStream(pos);
+		            executeReadPipeThread(pis);
+		            mReducer.sendReducerTask();
+		            final DataOutputStream out = new DataOutputStream(
+		                new BufferedOutputStream(pos));
+		            out.write(Token.token(START));
+		            mClient.execute(mMappingXq, out);
+		            out.write(Token.token(END));
+		            out.close();
+		            pos.close();		            
+		        }else {
+		            String[] res = mClient.execute(mMappingXq);
+		            System.out.println(res);
+		        }
 		} catch (final IOException exc) {
 			exc.printStackTrace();
 		} catch (final QueryException exc) {
