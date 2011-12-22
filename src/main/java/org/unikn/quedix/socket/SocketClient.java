@@ -184,7 +184,7 @@ public class SocketClient implements Client {
 
                             String query =
                                 "let $raw := db:retrieve($db, $map) " + "let $query := util:to-string($raw) "
-                                + "return util:eval($raw)";
+                                + "return util:eval($query)";
 
                             Query q = c.query(query);
                             q.bind("db", MAPPER_DB);
