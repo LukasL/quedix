@@ -56,6 +56,7 @@ public class Runner {
 	/** Slash. */
 	public static final String SLASH = "/";
 
+	private static long mStart;
 	/**
 	 * Main.
 	 * 
@@ -78,7 +79,7 @@ public class Runner {
 			DistributionAlgorithm ag = algo == null ? DistributionAlgorithm.ROUND_ROBIN_SIMPLE
 					: DistributionAlgorithm.valueOf(algo);
 			Runner run = new Runner();
-			long start = System.nanoTime();
+			mStart = System.nanoTime();
 			switch (a.getType()) {
 			case DISTRIBUTION_REST:
 				run.distributeCollection(a.getPar().get(Arg.Paramter.INPUT), a
@@ -114,7 +115,7 @@ public class Runner {
 				break;
 			}
 
-			long end = System.nanoTime() - start;
+			long end = System.nanoTime() - mStart;
 			System.out.println("\nComplete execution time: " + end / 1000000
 					+ " ms \n");
 		}
@@ -202,12 +203,12 @@ public class Runner {
 		if (type == ClientType.REST)
 			map(new MapClient(new RestClient(initHttpDataServersMonds(),
 					new MetaData()), new File(mapXq), new ReduceClient(
-					new File(reduceXq))));
+					new File(reduceXq), mStart)));
 		else {
 			SocketClient client = new SocketClient(initBaseXClientsMonds(),
 					new MetaData());
 			map(new MapClient(client, new File(mapXq), new ReduceClient(
-					new File(reduceXq))));
+					new File(reduceXq),mStart)));
 			client.shutdownClients();
 		}
 

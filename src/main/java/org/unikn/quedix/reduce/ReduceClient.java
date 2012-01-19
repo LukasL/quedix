@@ -32,6 +32,8 @@ public class ReduceClient {
 	private Context mCtx;
 	/** reduce process query. */
 	private byte[] mReduceFile;
+	/** start time. */
+	private long mStart;
 
 	/**
 	 * Default.
@@ -43,6 +45,22 @@ public class ReduceClient {
 	public ReduceClient(final File xQueryReducer) throws IOException {
 
 		mReduceFile = readByteArray(xQueryReducer);
+	}
+
+	/**
+	 * Default 2.
+	 * 
+	 * @param xQueryReducer
+	 *            reduce XQ file.
+	 * @param start
+	 *            start time.
+	 * @throws IOException
+	 */
+	public ReduceClient(final File xQueryReducer, final long start)
+			throws IOException {
+		this(xQueryReducer);
+		mStart = start;
+
 	}
 
 	/**
@@ -92,6 +110,10 @@ public class ReduceClient {
 		memData.close();
 		mCtx.close();
 		proc.close();
+
+		long end = System.nanoTime() - mStart;
+		System.out.println("\nComplete map and reduce execution time: " + end
+				/ 1000000 + " ms \n");
 	}
 
 	/**

@@ -1,19 +1,11 @@
 package org.unikn.quedix.map;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import org.basex.query.QueryException;
 import org.basex.util.Token;
@@ -103,17 +95,21 @@ public class MapClient {
                             for (String r : res)
                                 System.out.println(r);
 		        }else {
-		            final PipedOutputStream pos = new PipedOutputStream();
-                            final PipedInputStream pis = new PipedInputStream(pos);
-                            executeReadPipeThread(pis);
+//		                    final PipedOutputStream pos = new PipedOutputStream();
+//                            final PipedInputStream pis = new PipedInputStream(pos);
+//                            executeReadPipeThread(pis);
                             mReducer.sendReducerTask();
-                            final DataOutputStream out = new DataOutputStream(
-                                new BufferedOutputStream(pos));
+//                            final DataOutputStream out = new DataOutputStream(
+//                                new BufferedOutputStream(pos));
+                            ByteArrayOutputStream out = new ByteArrayOutputStream();
                             out.write(Token.token(START));
                             mClient.execute(mMappingXq, out);
                             out.write(Token.token(END));
                             out.close();
-                            pos.close();
+                            ByteArrayInputStream is = new ByteArrayInputStream(out.toByteArray());
+                            mReducer.execute(is, null);
+//                            pos.close();
+                            is.close();
 		            }
 		} catch (final IOException exc) {
 			exc.printStackTrace();
@@ -154,43 +150,43 @@ public class MapClient {
 		return content;
 	}
 
-	/**
-	 * Reads data out of {@link InputStream}.
-	 * 
-	 * @param is
-	 *            {@link InputStream} instance.
-	 */
-	private void readData(final InputStream is) {
-		DataInputStream in = new DataInputStream(new BufferedInputStream(is));
-
-		try {
-			mReducer.execute(in, null);
-			in.close();
-		} catch (final IOException exc) {
-			exc.printStackTrace();
-		} catch (final QueryException exc) {
-			exc.printStackTrace();
-		}
-	}
-
-	/**
-	 * Executes a reader thread for receiving items from
-	 * {@link PipedOutputStream}.
-	 * 
-	 * @param pis
-	 *            {@link PipedInputStream} instance.
-	 */
-	private void executeReadPipeThread(final InputStream pis) {
-		ExecutorService es = Executors.newFixedThreadPool(1);
-		Callable<Void> task = new Callable<Void>() {
-			@Override
-			public Void call() throws Exception {
-				readData(pis);
-				return null;
-			}
-		};
-		es.submit(task);
-		es.shutdown();
-
-	}
+//	/**
+//	 * Reads data out of {@link InputStream}.
+//	 * 
+//	 * @param is
+//	 *            {@link InputStream} instance.
+//	 */
+//	private void readData(final InputStream is) {
+//		DataInputStream in = new DataInputStream(new BufferedInputStream(is));
+//
+//		try {
+//			mReducer.execute(in, null);
+//			in.close();
+//		} catch (final IOException exc) {
+//			exc.printStackTrace();
+//		} catch (final QueryException exc) {
+//			exc.printStackTrace();
+//		}
+//	}
+//
+//	/**
+//	 * Executes a reader thread for receiving items from
+//	 * {@link PipedOutputStream}.
+//	 * 
+//	 * @param pis
+//	 *            {@link PipedInputStream} instance.
+//	 */
+//	private void executeReadPipeThread(final InputStream pis) {
+//		ExecutorService es = Executors.newFixedThreadPool(1);
+//		Callable<Void> task = new Callable<Void>() {
+//			@Override
+//			public Void call() throws Exception {
+//				readData(pis);
+//				return null;
+//			}
+//		};
+//		es.submit(task);
+//		es.shutdown();
+//
+//	}
 }
